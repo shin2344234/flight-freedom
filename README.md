@@ -66,7 +66,7 @@ it's on the ground".
 
 ## Research mode
 
-`Probe=1` turns the plugin back into the instrument that found the two patches.
+`Probe=1` turns the plugin back into the instrument that found the three patches.
 A `[sites]` entry hooks any address in the game named by RVA and logs, per call,
 the caller, six arguments with class names or text where a pointer resolves to
 one, four xmm registers, the return value, a read-back through an out-pointer, a
@@ -79,6 +79,39 @@ change. `[patch]` writes bytes and `[watch]` reports a value whenever it moves.
 `mod/tests/sites_test.cpp` exercises all of it against functions inside the test
 binary, including one built at runtime with a `call rel32` in its prologue so
 the trampoline's relocation is covered.
+
+## Antivirus
+
+All three 1.1.0 files are clean on VirusTotal: the plugin 0 of 66, the DMM
+archive 0 of 66 and the full archive 0 of 68. That is one release and not yet a
+trend, so this section will carry the numbers for each one as they come rather
+than a single score. Reports: [the plugin](https://www.virustotal.com/gui/file/60dcbd60dcfeb71ba22c70a9aa4e1b01ebc88dd5f1509fae89c55c57e7c6f1ac),
+[the DMM archive](https://www.virustotal.com/gui/file/92419f0139453cca86d58ef6cf2ccda73dfeca9e9b20dd46d10606cf7b552bae) and
+[the full archive](https://www.virustotal.com/gui/file/d85766d2e2819bf524678004a220883bcc5c5cbdbb8f2e29a98838dd22e97882).
+
+A scanner may object anyway, and the reason is the shape of the file. It is a
+DLL that a loader puts inside the game, and once there it rewrites instructions
+in memory and searches the game's code for byte patterns. A trainer does the
+same things, so a model trained on trainers answers trainer, and a release a
+day old has no install history to argue back with.
+
+What it does not do is reach the network. Its entire import list is `kernel32`,
+it reads and writes no registry key, and beside itself it touches only
+`FlightFreedom.ini`, `FlightFreedom.log` and the rotated copies. Every line is
+in this repository and `build.bat` will produce the file for you.
+
+The plugin is code signed: right-click `FlightFreedom.asi`, Properties, Digital
+Signatures shows Seth Walker, issued through Microsoft's identity-verified
+signing service and timestamped. A signature carries reputation from one
+release to the next, where a false-positive report clears one file only.
+
+If Defender or your browser quarantines the download, restore it and exclude
+the game's `bin64` folder, or build from source and use your own binary.
+SHA-256 for 1.1.0:
+
+    92419f0139453cca86d58ef6cf2ccda73dfeca9e9b20dd46d10606cf7b552bae  FlightFreedom-1.1.0-DMM.zip
+    d85766d2e2819bf524678004a220883bcc5c5cbdbb8f2e29a98838dd22e97882  FlightFreedom-1.1.0.zip
+    60dcbd60dcfeb71ba22c70a9aa4e1b01ebc88dd5f1509fae89c55c57e7c6f1ac  FlightFreedom.asi
 
 ## Building
 
@@ -93,3 +126,10 @@ order, since the checksums are of the signed file.
 
 MIT, see [LICENSE](LICENSE). Third party notices are in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Discord and Patreon
+
+Discord: [Shin234's Mods 'n Stuff](https://discord.gg/AZ2ztQYy74), for questions and for watching what is in progress. Bugs are still best filed as issues on this repo so they get tracked.
+
+Patreon: [patreon.com/cw/Shin234](https://www.patreon.com/cw/Shin234), with the posts at [patreon.com/cw/Shin234/posts](https://www.patreon.com/cw/Shin234/posts) since the new page layout buries them. Everything published stays free, and nothing is held back for it.
+
