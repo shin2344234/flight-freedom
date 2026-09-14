@@ -1,0 +1,26 @@
+# Working notes, captures and anything written in Seth's voice. Never tracked.
+private/
+
+# Game data extracted from the PAZ archives. Regenerate with the paz tools.
+extracted/
+extracted-*/
+
+# Third-party repos cloned for reference.
+tools/
+
+__pycache__/
+*.pyc
+mod/build/
+mod/dist/
+
+# API keys.
+keys.local.env
+*.local.env
+.env
+.env.*
+!*.example
+
+# Editor and assistant settings.
+.claude/
+.vscode/
+.idea/
