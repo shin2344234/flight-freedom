@@ -16,6 +16,15 @@ namespace
 {
     using CondFn = uint64_t (*)(void*, void*, void*, void*);
 
+    // A7 section 8.1: actionattr, isground and navmovetype flip every frame.
+    // DumpRing collapses runs of the same condition and answer, so a ring full
+    // of alternating entries collapses into nothing and costs about a thousand
+    // lines per dump. Session thirteen spent 406,804 of its 408,304 lines that
+    // way and lost the six-second window it was recording. The dump pair is
+    // rate-limited per condition by the clock, which is what A7 asked for
+    // instead of a transition count that a fast flip-flop burns through.
+    constexpr DWORD kDumpThrottleMs = 500;
+
     struct Slot
     {
         uintptr_t target = 0;
@@ -29,6 +38,9 @@ namespace
         volatile LONG describeLeft = 2;
         volatile LONG linesLeft = 60;    // transition lines before the summary takes over
         volatile LONG refusalsLeft = 8;  // positioned refusals, each with a wide dump
+        volatile LONG lastDumpTick = 0;  // GetTickCount at this slot's last wide dump
+        volatile LONG dumpThrottled = 0; // dumps this slot has skipped to the clock
+        volatile LONG dumpNoted = 0;     // whether the rate limit has been said once
         LONG reportedCalls = 0;   // mod thread only
         LONG reportedAnswer = -1; // mod thread only
     };
@@ -505,11 +517,29 @@ namespace
                 LOG("[cond] %s refused, and the played body could not be read for a position", kConditions[i].shortName);
             InterlockedExchange(&s.describeLeft, 1);
             // Everything around the refusal, not just the value I expected to
-            // matter: region, height and every summon-gate candidate.
+            // matter: region, height and every summon-gate candidate. The
+            // width stays exactly as it was; only the repetition is capped,
+            // so a condition that refuses eighty times a second no longer
+            // buries the one that refused once.
             if (i <= 1 || i >= 9)
             {
-                fp::conditions::DumpActors(kConditions[i].shortName);
-                fp::conditions::DumpRing(kConditions[i].shortName);
+                const DWORD now  = GetTickCount();
+                const DWORD last = static_cast<DWORD>(InterlockedCompareExchange(&s.lastDumpTick, 0, 0));
+                if (last == 0 || now - last >= kDumpThrottleMs)
+                {
+                    InterlockedExchange(&s.lastDumpTick, static_cast<LONG>(now));
+                    fp::conditions::DumpActors(kConditions[i].shortName);
+                    fp::conditions::DumpRing(kConditions[i].shortName);
+                }
+                else
+                {
+                    InterlockedIncrement(&s.dumpThrottled);
+                    if (InterlockedCompareExchange(&s.dumpNoted, 1, 0) == 0)
+                        LOG("[cond] %s is refusing faster than one dump per %lu ms, so its wide dumps are "
+                            "rate-limited from here. Every call is still counted and still goes into the ring; "
+                            "the summary says how many dumps were skipped.",
+                            kConditions[i].shortName, static_cast<unsigned long>(kDumpThrottleMs));
+                }
             }
         }
 
@@ -851,8 +881,13 @@ namespace fp::conditions
             const LONG calls = InterlockedCompareExchange(&s.calls, 0, 0);
             const LONG a = InterlockedCompareExchange(&s.lastAnswer, 0, 0);
             if (calls == s.reportedCalls && a == s.reportedAnswer) continue;
-            LOG("[cond] %-9s %ld calls (+%ld since last), last answer %s", kConditions[i].shortName,
-                calls, calls - s.reportedCalls, AnswerWord(a));
+            const LONG skipped = InterlockedCompareExchange(&s.dumpThrottled, 0, 0);
+            if (skipped > 0)
+                LOG("[cond] %-9s %ld calls (+%ld since last), last answer %s, %ld wide dumps skipped to the clock",
+                    kConditions[i].shortName, calls, calls - s.reportedCalls, AnswerWord(a), skipped);
+            else
+                LOG("[cond] %-9s %ld calls (+%ld since last), last answer %s", kConditions[i].shortName,
+                    calls, calls - s.reportedCalls, AnswerWord(a));
             s.reportedCalls = calls;
             s.reportedAnswer = a;
         }

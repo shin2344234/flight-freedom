@@ -122,18 +122,32 @@ namespace fp::sig
         { ".?AVConditionData_CheckMainMercenarySummonedByInfo@pa@@",
           "CheckMainMercenarySummonedByInfo(", "mainsummon", false, false },
 
-        // The two that actually gate a summon, found by reading the data
-        // rather than by guessing at class names. failmessageinfo row 1000010
-        // is CallVehicleWyvern_Owner and carries the string Seth saw; its one
-        // condition is conditioninfo row 1000019:
+        // These two were added on a reading that turned out to be wrong, and
+        // they are kept because the neighbourhood is the point of the probe,
+        // not because either gates a summon.
         //
-        //   IsGround() && !checkActionAttribute(SwimUnderWater || SwimMove ||
-        //     Fall || Ride || Catch || Climb || Jump || Fly || RemoteCatch ||
-        //     WallUp)
+        // The mis-decode: failmessageinfo row 1000010 is CallVehicleWyvern_Owner
+        // and carries "Cannot summon in this location.", and an early pass had
+        // its condition as row 1000019, IsGround() && !checkActionAttribute(...).
+        // That was a mis-decode of the record layout, corrected in
+        // private/ABYSS-SUMMON.md and again in private/github/release-1.0.0.md.
+        // Row 1000010's one condition is row 1000531, CheckNone(), a
+        // placeholder that evaluates trivially true.
         //
-        // So "Cannot summon in this location" is about footing and what the
-        // character is doing, not about where in the world they are. Note the
-        // label is lower-case checkActionAttribute while the class is upper.
+        // What follows from the correction, and it matters for any report of
+        // this string: the walker picks wording and gates nothing, so for the
+        // Wyvern-owner case the message is fixed once the gate has already
+        // refused, whatever the real reason was. A1 section 5 is the byte-level
+        // account. The wording therefore does not identify the cause, and a
+        // report that quotes it still needs a log.
+        //
+        // A7 section 5 then resolved isground's own callers: they are
+        // ClientInteractionActorComponent slot 46 on a StagedTaskThread, the
+        // world-interaction-prompt system, not the summon chain. Both of these
+        // flip every frame, which is what A7 section 8.1 measured drowning a
+        // session, so conditions.cpp rate-limits their wide dumps by the clock.
+        // Note the label is lower-case checkActionAttribute while the class is
+        // upper.
         { ".?AVConditionData_IsGround@pa@@",
           "IsGround(", "isground", true, false },
         { ".?AVConditionData_CheckActionAttribute@pa@@",
