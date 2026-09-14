@@ -25,6 +25,7 @@ All in `FlightFreedom.ini`, section `[settings]`.
 | `Ceiling` | `-1` | The flying ceiling. `0` leaves the game's 1350, `-1` removes it, a number sets it. |
 | `NoFlyZones` | `1` | The region block list answers "not blocked" everywhere. No altitude dismount, no refused ride into a listed region. |
 | `AbyssSummon` | `1` | The summon validator never refuses for the region. Redundant with `NoFlyZones=1`, kept so Abyss summons work with `NoFlyZones=0`. |
+| `TownFlight` | `1` | Flying low over a town off the road never dismounts you. |
 | `Probe` | `0` | Research mode. Hooks every mount condition, reads `[sites]`, `[patch]` and `[watch]`, and makes the log large. |
 
 `AboveCeiling` and `SummonAnywhere` are research overrides and only apply
@@ -48,7 +49,14 @@ inside the Abyss. `NoFlyZones` makes that routine answer "not blocked" with
 a three-byte patch. `AbyssSummon` is a one-byte patch on the validator's
 own branch.
 
-Both patches check the original bytes before writing. On another game build
+Towns are a separate rule, and a narrower one. The condition reads "in town
+and not above a road within 20", so riding through on the road is fine and
+flying low across the rooftops is not. `TownFlight` makes the road half
+always answer yes. That road check is used by exactly one condition row in
+the game, so nothing else changes. The in-town test is left alone, because 23
+other rows use it for bounty escalation and trade pricing.
+
+Every patch checks the original bytes before writing. On another game build
 they refuse and say so in the log instead of writing over the wrong place.
 The hooks and patches are restored when the plugin unloads.
 

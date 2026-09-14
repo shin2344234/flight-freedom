@@ -1,13 +1,14 @@
 # Flight Freedom
 
-Removes the flying ceiling and the no-fly zones in Crimson Desert 2.02.00, and
-lets a mount be summoned inside the Abyss.
+Removes the flying ceiling and the no-fly zones in Crimson Desert 2.02.00, lets
+a mount be summoned inside the Abyss, and stops towns throwing you off in the
+air.
 
 Blackstar and the Wyvern stop climbing at 1350, and a little over 1500 the game
 takes the mount away from you. Mounts cannot be called on the floor of the
-Abyss. All three come from two places: a float in a table, and one routine that
-asks whether the region you are in blocks the mount you are on. This changes
-both, at runtime, with no game file touched and nothing written to a save.
+Abyss. Flying low across a town off the road dismounts you. Each of those is a
+value or a branch that the plugin changes in memory at startup, with no game
+file touched and nothing written to a save.
 
 [Plugin manual](mod/README.md)
 
@@ -25,9 +26,14 @@ both, at runtime, with no game file touched and nothing written to a save.
 - **Summoning in the Abyss.** The summon validator asks that same routine and
   refuses with "Cannot summon in this area." One byte makes it skip that
   refusal, so summoning works underground even with the zones kept.
+- **Flying over towns.** A separate rule, "in town and not above a road within
+  20", dismounts you for flying low across a town off the road. Three bytes
+  make the road half always answer yes. It reaches one condition row in the
+  game; the in-town test is left alone, since 23 other rows use it for bounty
+  escalation and trade pricing.
 
-Both patches check the bytes they are about to change and refuse on any other
-game build, with a line in the log rather than a damaged game. Both are restored
+Every patch checks the bytes it is about to change and refuses on any other
+game build, with a line in the log rather than a damaged game. All are restored
 when the plugin unloads.
 
 ## Installing
@@ -50,6 +56,7 @@ below is also the plugin's own.
 | `Ceiling` | `-1` | `-1` no ceiling, `0` the game's 1350, or a height of your own. |
 | `NoFlyZones` | `1` | `1` means no region blocks any mount. |
 | `AbyssSummon` | `1` | `1` means the summon check never refuses for the region. |
+| `TownFlight` | `1` | `1` means flying low over a town off the road never dismounts you. |
 | `Probe` | `0` | Research mode. Hooks every mount-related check and reads the `[sites]`, `[patch]` and `[watch]` sections. The log becomes large. |
 
 `AboveCeiling` and `SummonAnywhere` are research overrides that apply only with

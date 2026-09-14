@@ -68,6 +68,18 @@ namespace fp::sig
     inline constexpr uint8_t kAbyssSummon_Repl[] = { 0xEB, 0x75 };       // jmp +0x75
     inline constexpr BytePatch kPatch_AbyssSummon = { "AbyssSummon", 0x9626B9, kAbyssSummon_Orig, kAbyssSummon_Repl, 2 };
 
+    // +0x21B08C0 is ConditionData_IsAboveRoad's condition slot. It reads the
+    // road type and radius baked into the condition object, asks the actor's
+    // navigation component, and inverts the answer. Exactly one conditioninfo
+    // row in all 10,785 uses it: row 1011130, "IsInTown() && !IsAboveRoad(
+    // Bird,20)", which is the town dismount. Answering "yes" makes the second
+    // half false and the whole row false, and reaches nothing else in the game.
+    // IsInTown itself is left alone: 23 rows use it, including bounty
+    // escalation and trade pricing.
+    inline constexpr uint8_t kTownFlight_Orig[] = { 0x48, 0x83, 0xEC };  // sub rsp, 0x28
+    inline constexpr uint8_t kTownFlight_Repl[] = { 0x31, 0xC0, 0xC3 };  // xor eax,eax; ret
+    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x21B08C0, kTownFlight_Orig, kTownFlight_Repl, 3 };
+
     // --- Conditions ---------------------------------------------------------
     // Every ConditionData class ends its vtable with a pair of slots that
     // belong to it alone: a stub returning a wide label, then the condition

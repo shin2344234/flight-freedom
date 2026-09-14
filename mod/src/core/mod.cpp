@@ -37,6 +37,7 @@ namespace
         float ceiling;        // 0 leave, -1 none, >0 that height
         bool  noFlyZones;     // region block list answers "not blocked"
         bool  abyssSummon;    // validator never refuses a summon for the region
+        bool  townFlight;     // the town dismount condition can never be true
         float aboveCeiling;   // research only: height-based region override
         bool  summonAnywhere; // research only
     };
@@ -48,6 +49,7 @@ namespace
         s.ceiling        = ReadSetting(L"Ceiling", L"-1");
         s.noFlyZones     = ReadSetting(L"NoFlyZones", L"1") != 0.0f;
         s.abyssSummon    = ReadSetting(L"AbyssSummon", L"1") != 0.0f;
+        s.townFlight     = ReadSetting(L"TownFlight", L"1") != 0.0f;
         s.aboveCeiling   = ReadSetting(L"AboveCeiling", L"0");
         s.summonAnywhere = ReadSetting(L"SummonAnywhere", L"0") != 0.0f;
         return s;
@@ -80,9 +82,9 @@ namespace
         const Settings s = ReadSettings();
 
         LOG("[mod] %s %s for Crimson Desert 2.02.00 (exe 1.0.0.2850). Settings: Ceiling=%s NoFlyZones=%d "
-            "AbyssSummon=%d Probe=%d", FP_NAME, FP_VERSION,
+            "AbyssSummon=%d TownFlight=%d Probe=%d", FP_NAME, FP_VERSION,
             s.ceiling == 0.0f ? "0 (game's own)" : (s.ceiling < 0.0f ? "-1 (none)" : "custom"),
-            s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.probe ? 1 : 0);
+            s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.townFlight ? 1 : 0, s.probe ? 1 : 0);
         LOG("[mod] game image at 0x%p, %zu bytes",
             reinterpret_cast<void*>(fp::mem::Game().base), fp::mem::Game().size);
 
@@ -101,6 +103,13 @@ namespace
                                   fp::sig::kPatch_AbyssSummon.len);
         else
             LOG("[patch] AbyssSummon is 0: the summon validator keeps its region refusal.");
+        if (s.townFlight)
+            fp::sites::ApplyPatch(fp::sig::kPatch_TownFlight.name, fp::sig::kPatch_TownFlight.rva,
+                                  fp::sig::kPatch_TownFlight.orig, fp::sig::kPatch_TownFlight.repl,
+                                  fp::sig::kPatch_TownFlight.len);
+        else
+            LOG("[patch] TownFlight is 0: flying low over a town off the road will dismount you, which is "
+                "the game's own behaviour.");
 
         // Research mode: every condition hook, the ini's own hooks, the
         // height-based override and the summon-gate override. None of it is
