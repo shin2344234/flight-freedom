@@ -82,12 +82,14 @@ the trampoline's relocation is covered.
 
 ## Antivirus
 
-All three 1.1.0 files are clean on VirusTotal: the plugin 0 of 66, the DMM
-archive 0 of 66 and the full archive 0 of 68. That is one release and not yet a
-trend, so this section will carry the numbers for each one as they come rather
-than a single score. Reports: [the plugin](https://www.virustotal.com/gui/file/60dcbd60dcfeb71ba22c70a9aa4e1b01ebc88dd5f1509fae89c55c57e7c6f1ac),
-[the DMM archive](https://www.virustotal.com/gui/file/92419f0139453cca86d58ef6cf2ccda73dfeca9e9b20dd46d10606cf7b552bae) and
-[the full archive](https://www.virustotal.com/gui/file/d85766d2e2819bf524678004a220883bcc5c5cbdbb8f2e29a98838dd22e97882).
+Nothing has been flagged yet. For 1.1.0 the plugin scored 0 of 66 on
+VirusTotal, the DMM archive 0 of 66 and the full archive 0 of 68. For 1.1.1 both
+archives scored 0 of 68, and the plugin's own analysis had not finished when
+this was written, so its report is linked below without a number. Two releases
+is a short history, so the figures stay here one release at a time instead of
+collapsing into a single score. 1.1.1 reports: [the plugin](https://www.virustotal.com/gui/file/488d4aa1357eb9a18fd9e1d23c6c7ed8f4160f450828c01adabb3ab8370e3c46),
+[the DMM archive](https://www.virustotal.com/gui/file/97acc1c99850653769ffb82d390468888a4c1f5318034bc9dfde53bd89bf5b08) and
+[the full archive](https://www.virustotal.com/gui/file/7e17ba9abc152b3ef06e8a83a53119feaf1a1c9e3a17f112b2d0055373bee63d).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -107,11 +109,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.0:
+SHA-256 for 1.1.1:
 
-    92419f0139453cca86d58ef6cf2ccda73dfeca9e9b20dd46d10606cf7b552bae  FlightFreedom-1.1.0-DMM.zip
-    d85766d2e2819bf524678004a220883bcc5c5cbdbb8f2e29a98838dd22e97882  FlightFreedom-1.1.0.zip
-    60dcbd60dcfeb71ba22c70a9aa4e1b01ebc88dd5f1509fae89c55c57e7c6f1ac  FlightFreedom.asi
+    97acc1c99850653769ffb82d390468888a4c1f5318034bc9dfde53bd89bf5b08  FlightFreedom-1.1.1-DMM.zip
+    7e17ba9abc152b3ef06e8a83a53119feaf1a1c9e3a17f112b2d0055373bee63d  FlightFreedom-1.1.1.zip
+    488d4aa1357eb9a18fd9e1d23c6c7ed8f4160f450828c01adabb3ab8370e3c46  FlightFreedom.asi
 
 ## Building
 
