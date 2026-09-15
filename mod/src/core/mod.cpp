@@ -191,9 +191,12 @@ namespace
 
 namespace fp::Mod
 {
-    // The game is not the only process that loads this plugin: the launcher
-    // does too, with a 671,744-byte image. That instance names its own log,
-    // says why it is doing nothing, and touches nothing.
+    // The game is not the only process that loads this plugin. crashpad_handler.exe
+    // does too, with a 671,744-byte image, which is its SizeOfImage on this build
+    // and how it is recognised here. It is also the only executable in bin64 that
+    // imports version.dll, which is why renaming an ASI loader to that name
+    // attaches it to the crash handler and never to the game. That instance names
+    // its own log, says why it is doing nothing, and touches nothing.
     static constexpr size_t kMinGameImage = 64ull * 1024 * 1024;
 
     void Initialize(HMODULE module)
