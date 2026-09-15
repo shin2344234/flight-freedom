@@ -40,4 +40,14 @@ namespace fp::tables
     // this cannot touch a ground mount by accident, and it is checked by
     // reading the rows back.
     int SetFlyingCeiling(float value);
+
+    // Write `value` over the one vehicleinfo row whose landed-timeout float is
+    // the stock 30.0, which is Blackstar and no other mount. Returns the count,
+    // or -1 when the offset was never established or the row carrying it is not
+    // the one expected, in which case nothing is written.
+    //
+    // Probe() must have run. The row is checked by its string key before the
+    // write and not only by value, because one matching row is weaker evidence
+    // than the ceiling's two and a wrong row here would edit another mount.
+    int SetLandedTimeout(float value);
 }

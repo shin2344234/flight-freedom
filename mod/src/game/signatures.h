@@ -34,6 +34,28 @@ namespace fp::sig
     // a disassembly. See private/research/regions.csv and vehicle_heights.py.
     inline constexpr float    kVehicleFlyingCeiling = 1350.0f; // Dragon and Wyvern only
     inline constexpr uint32_t kVehicleRowsWithCeiling = 2;
+
+    // A second per-row float, fourteen bytes before the ceiling in the packed
+    // record: 30.0 on Dragon and 0.0 on every one of the other 33 rows, Wyvern
+    // included. ShawX99 reports the Blackstar lifting off again 15 to 30
+    // seconds after you land and dismount, where the Wyvern stays put
+    // indefinitely, which is the one difference between the two flyers anybody
+    // has named.
+    //
+    // The field has no name here. The executable's VehicleInfo registration
+    // block lists the class's fields but not in record order, so the only
+    // honest description is "the float that is 30.0 on the mount that leaves
+    // after about thirty seconds and 0.0 on the mount that does not". That is
+    // a correlation and not a reading of the code, which is why the setting is
+    // off by default until somebody has played it.
+    //
+    // What makes the offset safe is the count rather than the arithmetic:
+    // exactly one row carries 30.0, so the FindF32Offset that names the
+    // ceiling by its count of two names this one by its count of one, and
+    // refuses when the count does not land.
+    inline constexpr float       kVehicleLandedTimeout = 30.0f;
+    inline constexpr uint32_t    kVehicleRowsWithLandedTimeout = 1;
+    inline constexpr const char* kVehicleLandedRowKey = "Dragon";
     inline constexpr uint32_t kRegionRowsIsTown       = 172;
     inline constexpr uint32_t kRegionRowsLimitRun     = 15;
     inline constexpr uint32_t kRegionRowsNonePlay     = 4;

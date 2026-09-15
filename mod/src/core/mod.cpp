@@ -38,6 +38,7 @@ namespace
         bool  noFlyZones;     // region block list answers "not blocked"
         bool  abyssSummon;    // validator never refuses a summon for the region
         bool  townFlight;     // the town dismount condition can never be true
+        float landedTimeout;  // Blackstar's landed timeout, 0 leaves the game's 30
         float aboveCeiling;   // research only: height-based region override
         bool  summonAnywhere; // research only
     };
@@ -50,6 +51,7 @@ namespace
         s.noFlyZones     = ReadSetting(L"NoFlyZones", L"1") != 0.0f;
         s.abyssSummon    = ReadSetting(L"AbyssSummon", L"1") != 0.0f;
         s.townFlight     = ReadSetting(L"TownFlight", L"1") != 0.0f;
+        s.landedTimeout  = ReadSetting(L"LandedTimeout", L"0");
         s.aboveCeiling   = ReadSetting(L"AboveCeiling", L"0");
         s.summonAnywhere = ReadSetting(L"SummonAnywhere", L"0") != 0.0f;
         return s;
@@ -82,9 +84,10 @@ namespace
         const Settings s = ReadSettings();
 
         LOG("[mod] %s %s for Crimson Desert 2.02.00 (exe 1.0.0.2850). Settings: Ceiling=%s NoFlyZones=%d "
-            "AbyssSummon=%d TownFlight=%d Probe=%d", FP_NAME, FP_VERSION,
+            "AbyssSummon=%d TownFlight=%d LandedTimeout=%.1f Probe=%d", FP_NAME, FP_VERSION,
             s.ceiling == 0.0f ? "0 (game's own)" : (s.ceiling < 0.0f ? "-1 (none)" : "custom"),
-            s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.townFlight ? 1 : 0, s.probe ? 1 : 0);
+            s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.townFlight ? 1 : 0, s.landedTimeout,
+            s.probe ? 1 : 0);
         LOG("[mod] game image at 0x%p, %zu bytes",
             reinterpret_cast<void*>(fp::mem::Game().base), fp::mem::Game().size);
 
@@ -151,6 +154,15 @@ namespace
                         LOG("[ceiling] Ceiling is 0, so the game's %.1f stands.", fp::sig::kVehicleFlyingCeiling);
                     else
                         fp::tables::SetFlyingCeiling(s.ceiling < 0 ? FLT_MAX : s.ceiling);
+
+                    // Off by default: the field is identified by correlation
+                    // and nobody has played a build with it changed.
+                    if (s.landedTimeout == 0.0f)
+                        LOG("[landed] LandedTimeout is 0, so Blackstar keeps the game's %.1f and lifts off again "
+                            "after it. Set -1 to give it the Wyvern's 0, or a number of seconds of your own.",
+                            fp::sig::kVehicleLandedTimeout);
+                    else
+                        fp::tables::SetLandedTimeout(s.landedTimeout < 0 ? 0.0f : s.landedTimeout);
                 }
                 else if (++waited == 120)
                     LOG_ERR("[table] vehicleinfo and regioninfo were still not loaded after two minutes. The ceiling "

@@ -148,6 +148,7 @@ namespace
     // table a second time.
     fp::tables::Table g_veh;
     int g_ceilingOff = -1;
+    int g_landedOff = -1;
 
     // FLT_MAX is what every ground mount carries, so it means "no ceiling"
     // rather than a number anyone wants to read.
@@ -231,6 +232,23 @@ namespace fp::tables
             }
         }
 
+        // The landed timeout, by the same count test. One row rather than two,
+        // so the row's key is logged and checked before anything is written.
+        {
+            const int off = FindF32Offset(recs, kVehicleLandedTimeout, kVehicleRowsWithLandedTimeout);
+            if (off < 0)
+                LOG("[table] no offset in a vehicleinfo record holds %.1f on exactly %u row, so the landed timeout "
+                    "was not located. LandedTimeout can do nothing this session.",
+                    kVehicleLandedTimeout, kVehicleRowsWithLandedTimeout);
+            else
+            {
+                LOG_OK("[table] the landed timeout looks like record +0x%03X: %.1f on exactly %u row.",
+                       off, kVehicleLandedTimeout, kVehicleRowsWithLandedTimeout);
+                LogMatching(veh, recs, off, &kVehicleLandedTimeout, 4, 4, "landed");
+                g_landedOff = off;
+            }
+        }
+
         LOG_OK("[table] regioninfo at +0x%llX, %u rows, defs at +0x%02X",
                static_cast<unsigned long long>(mem::Rva(reg.global)), reg.rows, reg.defsOff);
         Copy(reg, recs);
@@ -296,6 +314,53 @@ namespace fp::tables
         }
         if (!changed)
             LOG_ERR("[ceiling] no vehicleinfo row still held %.1f, so nothing was changed.", kVehicleFlyingCeiling);
+        return changed;
+    }
+
+    int SetLandedTimeout(float value)
+    {
+        if (g_landedOff < 0 || !g_veh.object)
+        {
+            LOG_ERR("[landed] the landed timeout offset was never established this session, so nothing is written. "
+                    "A guessed offset would land on some other field.");
+            return -1;
+        }
+        uint32_t stock = 0;
+        memcpy(&stock, &kVehicleLandedTimeout, sizeof stock);
+        int changed = 0;
+        for (uint32_t r = 0; r < g_veh.rows; ++r)
+        {
+            const uintptr_t def = DefAt(g_veh, r);
+            uint32_t cur = 0;
+            char key[96];
+            if (!def || !mem::Read32(def + g_landedOff, &cur) || cur != stock) continue;
+            if (!StringKey(g_veh, r, key, sizeof key)) strcpy_s(key, "(no key)");
+            // One row matching by value is weaker evidence than the ceiling's
+            // two, so the key has to agree before anything is written. If some
+            // other mount is carrying 30.0 on this build, that is a finding
+            // worth a line rather than a write.
+            if (strcmp(key, kVehicleLandedRowKey) != 0)
+            {
+                LOG_ERR("[landed] the row holding %.1f is %s, not %s, so nothing is written. The field this setting "
+                        "was built for is the one Blackstar carries.", kVehicleLandedTimeout, key, kVehicleLandedRowKey);
+                return -1;
+            }
+            if (!WriteF32(def + g_landedOff, value))
+            {
+                LOG_ERR("[landed] %s could not be written", key);
+                continue;
+            }
+            uint32_t after = 0;
+            float back = 0;
+            mem::Read32(def + g_landedOff, &after);
+            memcpy(&back, &after, sizeof back);
+            LOG_OK("[landed] %s landed timeout changed from %.1f to %.1f (read back %.1f). Land, get off, and see "
+                   "whether it stays; this field is identified by what it correlates with, not by its name.",
+                   key, kVehicleLandedTimeout, value, back);
+            ++changed;
+        }
+        if (!changed)
+            LOG_ERR("[landed] no vehicleinfo row still held %.1f, so nothing was changed.", kVehicleLandedTimeout);
         return changed;
     }
 }
