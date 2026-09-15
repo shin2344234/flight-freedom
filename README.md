@@ -83,11 +83,10 @@ the trampoline's relocation is covered.
 ## Antivirus
 
 Nothing has been flagged yet. For 1.1.0 the plugin scored 0 of 66 on
-VirusTotal, the DMM archive 0 of 66 and the full archive 0 of 68. For 1.1.1 both
-archives scored 0 of 68, and the plugin's own analysis had not finished when
-this was written, so its report is linked below without a number. Two releases
-is a short history, so the figures stay here one release at a time instead of
-collapsing into a single score. 1.1.1 reports: [the plugin](https://www.virustotal.com/gui/file/488d4aa1357eb9a18fd9e1d23c6c7ed8f4160f450828c01adabb3ab8370e3c46),
+VirusTotal, the DMM archive 0 of 66 and the full archive 0 of 68. All three
+1.1.1 files scored 0 of 68. Two releases is a short history, so the figures stay
+here one release at a time instead of collapsing into a single score. 1.1.1
+reports: [the plugin](https://www.virustotal.com/gui/file/488d4aa1357eb9a18fd9e1d23c6c7ed8f4160f450828c01adabb3ab8370e3c46),
 [the DMM archive](https://www.virustotal.com/gui/file/97acc1c99850653769ffb82d390468888a4c1f5318034bc9dfde53bd89bf5b08) and
 [the full archive](https://www.virustotal.com/gui/file/7e17ba9abc152b3ef06e8a83a53119feaf1a1c9e3a17f112b2d0055373bee63d).
 
