@@ -42,12 +42,16 @@ Ultimate ASI Loader (`winmm.dll`) must be in the game's `bin64` folder. With the
 game closed, copy `FlightFreedom.asi` and `FlightFreedom.ini` in beside it.
 Uninstall by deleting them.
 
-If another mod already owns `winmm.dll`, rename Ultimate ASI Loader to something
-the game imports: `xinput1_4.dll`, `wininet.dll`, `winhttp.dll` and `d3d12.dll`
-all work. Do not use `version.dll`. `CrimsonDesert.exe` has no import for it, so
-it is never loaded; the only thing in `bin64` that imports `version.dll` is
-`crashpad_handler.exe`. `FlightFreedom.log` appearing in `bin64` is the test,
-and no log means nothing loaded the plugin at all.
+If another mod already owns `winmm.dll`, rename Ultimate ASI Loader to another
+name the game loads. `xinput1_4.dll`, `wininet.dll`, `winhttp.dll` and
+`d3d12.dll` are imported by `CrimsonDesert.exe` itself. `version.dll` works too,
+one step further out: the exe does not import it, but `sentry.dll` does, and the
+exe imports `sentry.dll` statically on every launch. Until 15 September 2026
+this file said version.dll could never load, which was wrong. The exe's own
+import table was read and its dependencies' were not.
+
+`FlightFreedom.log` appearing in `bin64` is the test, and no log means nothing
+loaded the plugin at all.
 
 Definitive Mod Manager users can import the DMM archive instead. It holds the
 plugin alone, which is what DMM registers; every default is compiled in, so it
