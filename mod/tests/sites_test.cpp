@@ -90,6 +90,16 @@ static void Check(bool ok, const char* what)
     if (!ok) ++g_fail;
 }
 
+static void Touch(const wchar_t* name)
+{
+    if (FILE* f = _wfopen(fp::Paths::File(name).c_str(), L"wb")) fclose(f);
+}
+
+static bool Exists(const wchar_t* name)
+{
+    return GetFileAttributesW(fp::Paths::File(name).c_str()) != INVALID_FILE_ATTRIBUTES;
+}
+
 static int CountLines(const char* needle)
 {
     std::vector<std::string> lines;
@@ -205,6 +215,29 @@ int main()
     fp::sites::Remove();
     Check(g_patchable[0] == 1 && g_patchable[1] == 2, "patch restored on remove");
     Check(g_builtinTarget && g_builtinTarget[0] == 0x74 && g_builtinTarget[1] == 0x75, "built-in patch restored on remove");
+
+    // RemovePerProcessLogs deletes files, so it is checked against decoys
+    // instead of trusted. Everything here is written next to this exe, which
+    // is the folder Paths::Init pointed at.
+    {
+        const wchar_t* doomed[] = {
+            L"FFTest.other-1.log", L"FFTest.other-99999.log", L"FFTest.other-x.log",
+        };
+        const wchar_t* spared[] = {
+            L"FFTest.log", L"FFTest.01.log", L"FFTest.other.log",
+            L"FFTest.other-1.txt", L"FFTestXother-1.log", L"Other.log",
+        };
+        for (const wchar_t* n : doomed) Touch(n);
+        for (const wchar_t* n : spared) Touch(n);
+
+        const int gone = fp::Log::RemovePerProcessLogs(L"FFTest");
+        Check(gone == 3, "removed exactly the three per-process logs");
+        for (const wchar_t* n : doomed) Check(!Exists(n), "per-process log deleted");
+        for (const wchar_t* n : spared) Check(Exists(n), "neighbour left alone");
+        Check(fp::Log::RemovePerProcessLogs(L"FFTest") == 0, "a second pass finds nothing");
+
+        for (const wchar_t* n : spared) DeleteFileW(fp::Paths::File(n).c_str());
+    }
 
     std::vector<std::string> lines;
     fp::Log::Snapshot(lines, 400);

@@ -250,15 +250,26 @@ namespace fp::Mod
         const size_t size = mem::Game().size;
         if (!mem::Game().base || size < kMinGameImage)
         {
-            wchar_t name[64];
-            _snwprintf_s(name, _countof(name), _TRUNCATE, L"%s.other-%lu", FP_FILEBASE, GetCurrentProcessId());
-            Log::Claim(name);
-            LOG("[mod] this process has a %zu byte image, which is not the game, so nothing is changed here. "
-                "The game's own log is %ls.log.", size, FP_FILEBASE);
+            // One fixed name, not one per process id. crashpad_handler.exe
+            // starts and exits repeatedly, and naming the file after the pid
+            // left a new one behind every time with nothing to clear them.
+            wchar_t name[96];
+            _snwprintf_s(name, _countof(name), _TRUNCATE, L"%s.other", FP_FILEBASE);
+            Log::ClaimSingle(name);
+
+            wchar_t exe[MAX_PATH] = {};
+            GetModuleFileNameW(nullptr, exe, MAX_PATH);
+            const wchar_t* leaf = wcsrchr(exe, L'\\');
+            LOG("[mod] %ls (pid %lu) has a %zu byte image, which is not the game, so nothing is changed "
+                "here. The game's own log is %ls.log.", leaf ? leaf + 1 : exe,
+                GetCurrentProcessId(), size, FP_FILEBASE);
             Log::Shutdown();
             return;
         }
         Log::Claim(FP_FILEBASE);
+        if (const int gone = Log::RemovePerProcessLogs(FP_FILEBASE))
+            LOG("[mod] removed %d stray %ls.other-<pid>.log files that builds up to 1.1.2 left in this "
+                "folder. This build writes one %ls.other.log and replaces it.", gone, FP_FILEBASE, FP_FILEBASE);
         g_thread = CreateThread(nullptr, 0, Worker, nullptr, 0, nullptr);
     }
 

@@ -80,12 +80,9 @@ namespace fp::Log
         MoveFileExW(Paths::File(live).c_str(), Paths::File(to).c_str(), MOVEFILE_REPLACE_EXISTING);
     }
 
-    void Claim(const wchar_t* base)
+    // Caller holds g_mu.
+    static void Open(const wchar_t* base)
     {
-        std::lock_guard<std::mutex> lk(g_mu);
-        if (g_claimed) return;
-        g_claimed = true;
-        Rotate(base);
         wchar_t live[96];
         _snwprintf_s(live, _countof(live), _TRUNCATE, L"%s.log", base);
         g_file = _wfopen(Paths::File(live).c_str(), L"w");
@@ -97,6 +94,57 @@ namespace fp::Log
         }
         g_pending.clear();
         fflush(g_file);
+    }
+
+    void Claim(const wchar_t* base)
+    {
+        std::lock_guard<std::mutex> lk(g_mu);
+        if (g_claimed) return;
+        g_claimed = true;
+        Rotate(base);
+        Open(base);
+    }
+
+    void ClaimSingle(const wchar_t* base)
+    {
+        std::lock_guard<std::mutex> lk(g_mu);
+        if (g_claimed) return;
+        g_claimed = true;
+        Open(base);
+    }
+
+    // Up to 1.1.2 the non-game process named its log after its own process id,
+    // so every crashpad_handler.exe that ever started left a file behind and
+    // nothing removed them. One bin64 had 78 of them, one line each. The name
+    // is fixed now, and this clears out what the old builds left.
+    //
+    // A wildcard can match a file through its 8.3 short name, so the name that
+    // comes back is checked against the pattern again before anything goes.
+    // Nothing outside <base>.other-*.log is ever deleted.
+    int RemovePerProcessLogs(const wchar_t* base)
+    {
+        wchar_t prefix[96], pattern[96];
+        _snwprintf_s(prefix,  _countof(prefix),  _TRUNCATE, L"%s.other-", base);
+        _snwprintf_s(pattern, _countof(pattern), _TRUNCATE, L"%s*.log", prefix);
+
+        WIN32_FIND_DATAW fd;
+        const HANDLE h = FindFirstFileW(Paths::File(pattern).c_str(), &fd);
+        if (h == INVALID_HANDLE_VALUE) return 0;
+
+        const size_t plen = wcslen(prefix);
+        int removed = 0;
+        do
+        {
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+            const size_t n = wcslen(fd.cFileName);
+            if (n <= plen + 4) continue;
+            if (_wcsnicmp(fd.cFileName, prefix, plen) != 0) continue;
+            if (_wcsicmp(fd.cFileName + n - 4, L".log") != 0) continue;
+            if (DeleteFileW(Paths::File(fd.cFileName).c_str())) ++removed;
+        } while (FindNextFileW(h, &fd));
+
+        FindClose(h);
+        return removed;
     }
 
     bool Claimed()

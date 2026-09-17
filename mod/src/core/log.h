@@ -18,6 +18,16 @@ namespace fp::Log
     // three hooks failing when all five had installed. Whoever is not the game
     // gets its own name and never touches the real log.
     void Claim(const wchar_t* base);
+
+    // The same, for a log that must not accumulate: no archives, and the file
+    // from last time is replaced. crashpad_handler.exe writes one line saying
+    // it is doing nothing, and a history of that is worth nothing.
+    void ClaimSingle(const wchar_t* base);
+
+    // Deletes <base>.other-<pid>.log, which is what the non-game process was
+    // named up to 1.1.2. Returns how many went. Only the game calls this.
+    int RemovePerProcessLogs(const wchar_t* base);
+
     bool Claimed();
     void Shutdown();
     void Snapshot(std::vector<std::string>& out, int maxLines);
