@@ -20,7 +20,6 @@ keys.local.env
 .env.*
 !*.example
 
-# Editor and assistant settings.
-.claude/
+# Editor settings.
 .vscode/
 .idea/
