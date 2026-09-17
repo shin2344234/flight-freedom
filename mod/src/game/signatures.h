@@ -90,6 +90,31 @@ namespace fp::sig
     inline constexpr uint8_t kAbyssSummon_Repl[] = { 0xEB, 0x75 };       // jmp +0x75
     inline constexpr BytePatch kPatch_AbyssSummon = { "AbyssSummon", 0x9626B9, kAbyssSummon_Orig, kAbyssSummon_Repl, 2 };
 
+    // +0x962466 is the `je` in the validator body that skips writing
+    // eErrNoCallVehicleMercenaryMovableNavigation ("Cannot summon here.") when
+    // whatever the player is standing on carries no flag. The chain above it
+    // reads transform+0x3F4 for the id of the thing underfoot, resolves that
+    // actor through ClientActorManager slot 5 (+0x837560), takes its gimmick
+    // key from +0x48 and tests byte +0x169 of the gimmickinfo row that
+    // +0x382860 resolves. Three branches already fall through to the allowed
+    // path at +0x962496: nothing underfoot, no key, flag clear. This makes the
+    // fourth fall through with them, and both paths run the same release on
+    // the way out, so the refcounting is unchanged.
+    //
+    // The check sits ahead of the region check in the same validator, which is
+    // what NumboOne0990 is describing when he says 1.1.0 lets him summon on the
+    // Abyss floor but not while standing on a Nexus teleport circle. The circle
+    // is a placed gimmick and the floor is not. That is a reading of the code
+    // and of one report, not a measurement, which is why the setting is off
+    // until somebody has played it.
+    //
+    // The flag itself is left alone, so every other reader of it behaves as it
+    // did and only the summon validator stops asking. The cost is that a mount
+    // can then be summoned onto a moving platform anywhere in the game.
+    inline constexpr uint8_t kPlatformSummon_Orig[] = { 0x74, 0x2E };   // je +0x2E
+    inline constexpr uint8_t kPlatformSummon_Repl[] = { 0xEB, 0x2E };   // jmp +0x2E
+    inline constexpr BytePatch kPatch_PlatformSummon = { "PlatformSummon", 0x962466, kPlatformSummon_Orig, kPlatformSummon_Repl, 2 };
+
     // +0x21B08C0 is ConditionData_IsAboveRoad's condition slot. It reads the
     // road type and radius baked into the condition object, asks the actor's
     // navigation component, and inverts the answer. Exactly one conditioninfo
