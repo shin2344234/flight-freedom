@@ -10,6 +10,7 @@
 
 #include "core/log.h"
 #include "core/paths.h"
+#include "ini_default.h"
 #include "game/conditions.h"
 #include "game/mem.h"
 #include "game/signatures.h"
@@ -29,6 +30,34 @@ namespace
         wchar_t buf[64] = {};
         GetPrivateProfileStringW(L"settings", key, fallback, buf, 64, ini.c_str());
         return static_cast<float>(_wtof(buf));
+    }
+
+    // A DMM install is the plugin on its own, because the plugin is all DMM
+    // registers, so there is no ini beside it and nothing for anybody to edit.
+    // Every default is compiled in and the mod runs correctly without one,
+    // which is exactly why the absence is confusing: ShawX99 was told to set
+    // LandedTimeout in a file he had never been given. Write the documented ini
+    // out when there is none there. An existing file is never touched, however
+    // old or however empty.
+    void WriteDefaultIni()
+    {
+        const std::wstring path = fp::Paths::File(FP_INI);
+        if (GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES) return;
+
+        FILE* f = nullptr;
+        const errno_t e = _wfopen_s(&f, path.c_str(), L"wb");
+        if (e != 0 || !f)
+        {
+            LOG("[ini] %ls is not there and could not be written (errno %d). Every default is compiled "
+                "in, so the mod still runs; there is just no file to change one in.", FP_INI, e);
+            return;
+        }
+        const bool ok = fwrite(kDefaultIni, 1, kDefaultIniSize, f) == kDefaultIniSize;
+        fclose(f);
+        LOG(ok ? "[ini] no %ls beside the plugin, so one was written with every setting at its default "
+                 "and a note on each. Edit it and restart the game."
+               : "[ini] %ls was created but not written in full. Delete it and it will be written again.",
+            FP_INI);
     }
 
     struct Settings
@@ -83,6 +112,7 @@ namespace
 
     DWORD WINAPI Worker(LPVOID)
     {
+        WriteDefaultIni();
         const Settings s = ReadSettings();
 
         LOG("[mod] %s %s for Crimson Desert 2.02.00 (exe 1.0.0.2850). Settings: Ceiling=%s NoFlyZones=%d "
