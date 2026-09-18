@@ -102,11 +102,12 @@ Nothing has been flagged yet. For 1.1.0 the plugin scored 0 of 66 on
 VirusTotal, the DMM archive 0 of 66 and the full archive 0 of 68. All three
 1.1.1 files scored 0 of 68. For 1.1.2 the plugin scored 0 of 70, the DMM archive
 0 of 67 and the full archive 0 of 68. For 1.1.3 the plugin scored 0 of 70 and
-both archives 0 of 68. Four releases is still a short history, so the figures
+both archives 0 of 68. For 1.1.4 the plugin scored 0 of 70, the DMM archive
+0 of 68 and the full archive 0 of 67. Five releases is still a short history, so the figures
 stay here one release at a time instead of collapsing into a single
-score. 1.1.3 reports: [the plugin](https://www.virustotal.com/gui/file/707489d97466100631390c889569b9df18cceab101e5e02dddc4c4d306ac7f9d),
-[the DMM archive](https://www.virustotal.com/gui/file/2b6f03461e2f549e129e13e9030f04daabb3be1b21aba3ac0aa59689943d136c) and
-[the full archive](https://www.virustotal.com/gui/file/0fae9d68276b2a41ab6995e4fce4d97e0c556cd91314191fbf48ddc97009d2b6).
+score. 1.1.4 reports: [the plugin](https://www.virustotal.com/gui/file/fcfea4c8e552adeb6fd527e5615660a3d8e7a076ce5e7a60018f8abc3d21c9eb),
+[the DMM archive](https://www.virustotal.com/gui/file/fd471d7a5e6b9a84dd7a4552da3ffa2ee7e5130b00e32dbbcb049a9842917d76) and
+[the full archive](https://www.virustotal.com/gui/file/f568a2a5d3c3cd26f6b9b6df45f720012c20d05685c261f169523950221b903d).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -126,11 +127,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.3:
+SHA-256 for 1.1.4:
 
-    2b6f03461e2f549e129e13e9030f04daabb3be1b21aba3ac0aa59689943d136c  FlightFreedom-1.1.3-DMM.zip
-    0fae9d68276b2a41ab6995e4fce4d97e0c556cd91314191fbf48ddc97009d2b6  FlightFreedom-1.1.3.zip
-    707489d97466100631390c889569b9df18cceab101e5e02dddc4c4d306ac7f9d  FlightFreedom.asi
+    fd471d7a5e6b9a84dd7a4552da3ffa2ee7e5130b00e32dbbcb049a9842917d76  FlightFreedom-1.1.4-DMM.zip
+    f568a2a5d3c3cd26f6b9b6df45f720012c20d05685c261f169523950221b903d  FlightFreedom-1.1.4.zip
+    fcfea4c8e552adeb6fd527e5615660a3d8e7a076ce5e7a60018f8abc3d21c9eb  FlightFreedom.asi
 
 ## Building
 
