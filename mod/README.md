@@ -1,9 +1,10 @@
 # Flight Freedom
 
-Lifts the mount restrictions in Crimson Desert 2.02.00 (exe 1.0.0.2850):
+Lifts the mount restrictions in Crimson Desert 2.03.00 (exe 1.0.0.2944):
 the 1350 flying ceiling, the region rule that dismounts you at altitude and
-keeps mounts out of listed regions, and the "Cannot summon in this area."
-refusal inside the Abyss.
+keeps mounts out of listed regions, the "Cannot summon in this area." refusal
+inside the Abyss, and the rule that throws you off when you fly low over a
+town.
 
 ## Install
 
@@ -13,8 +14,22 @@ refusal inside the Abyss.
 3. Play. The plugin writes `FlightFreedom.log` next to itself with a line for
    each thing it changed and what it read back.
 
-Remove the two files to uninstall. Nothing is written to the game's files
-or saves.
+If there is no `FlightFreedom.ini` beside the plugin when the game starts, the
+plugin writes the documented one there. An ini that already exists is never
+touched.
+
+If another mod already owns `winmm.dll`, give the loader a name nothing else
+has claimed. `xinput1_4.dll`, `wininet.dll`, `winhttp.dll` and `d3d12.dll` are
+imported by the exe directly. `version.dll` works too: the exe does not import
+it, but `sentry.dll` does, and the exe loads `sentry.dll` on every launch.
+`FlightFreedom.log` appearing is the test. No log means nothing loaded the
+plugin.
+
+The game's crash handler loads the plugin as well. That copy writes
+`FlightFreedom.other.log` saying it is not the game, and changes nothing.
+
+To uninstall, delete the FlightFreedom files from `bin64`. Nothing is written
+to the game's own files or saves.
 
 ## Settings
 
@@ -25,7 +40,9 @@ All in `FlightFreedom.ini`, section `[settings]`.
 | `Ceiling` | `-1` | The flying ceiling. `0` leaves the game's 1350, `-1` removes it, a number sets it. |
 | `NoFlyZones` | `1` | The region block list answers "not blocked" everywhere. No altitude dismount, no refused ride into a listed region. |
 | `AbyssSummon` | `1` | The summon validator never refuses for the region. Redundant with `NoFlyZones=1`, kept so Abyss summons work with `NoFlyZones=0`. |
+| `PlatformSummon` | `0` | The summon validator never refuses for what you are standing on. That check is what blocks a summon on an Abyss Nexus teleport circle. Off by default, see below. |
 | `TownFlight` | `1` | Flying low over a town off the road never dismounts you. |
+| `LandedTimeout` | `0` | Blackstar lifts off again about 30 seconds after you land and get off. `0` leaves that, `-1` writes the Wyvern's `0.0`, a number sets seconds of your own. Off by default, see below. |
 | `Probe` | `0` | Research mode. Hooks every mount condition, reads `[sites]`, `[patch]` and `[watch]`, and makes the log large. |
 
 `AboveCeiling` and `SummonAnywhere` are research overrides and only apply
@@ -38,7 +55,9 @@ mount while it's on the ground".
 The ceiling is a float in the loaded `vehicleinfo` table, 1350 on Blackstar
 and the Wyvern and none on every other mount. The plugin resolves the table
 by name at startup, finds the field by its row count, writes the new value
-over the two rows and reads it back.
+over the two rows and reads it back. `LandedTimeout` works the same way on
+the float that is 30.0 on Blackstar and 0.0 on every other mount, and writes
+nothing unless the row carrying it is Blackstar's.
 
 Everything else is one routine. Each region in `regioninfo` carries a list
 of mount categories it blocks, and a routine asks whether the region you are
@@ -48,6 +67,14 @@ happens at roughly 1550 up, and the summon validator, which is what refuses
 inside the Abyss. `NoFlyZones` makes that routine answer "not blocked" with
 a three-byte patch. `AbyssSummon` is a one-byte patch on the validator's
 own branch.
+
+Before the validator reaches the region rule it looks at whatever you are
+standing on, finds that object's row in `gimmickinfo`, and refuses with
+"Cannot summon here." if one flag on the row is set. A Nexus teleport circle
+is such an object and the Abyss floor is not, which is why stepping off the
+circle lets the summon through. `PlatformSummon` turns that branch into a jump
+past the refusal. The flag itself is left alone, so nothing else that reads it
+changes.
 
 Towns are a separate rule, and a narrower one. The condition reads "in town
 and not above a road within 20", so riding through on the road is fine and
@@ -62,8 +89,16 @@ The hooks and patches are restored when the plugin unloads.
 
 ## Known limits
 
-- Built and verified on 2.02.00 only. A patch will not apply on a different
-  build; the log names it.
+- Built for 2.03.00 (exe 1.0.0.2944). A patch will not apply on a different
+  build, and the log names each one that refused. The ceiling is found by
+  name and not by address, so it can keep working after an update that stops
+  the patches.
+- `PlatformSummon` and `LandedTimeout` are off by default because neither has
+  been played yet. `PlatformSummon` is read out of the disassembly and one
+  report, and it also allows a summon on top of a moving platform anywhere in
+  the game. `LandedTimeout`'s field has no name in the executable. It is
+  identified only by being 30.0 on the mount that leaves and 0.0 on the one
+  that stays.
 - `NoFlyZones=1` removes every region's mount block, not only the Abyss and
   the altitude zones. Towns were never on the list on this build, so nothing
   changes there.
