@@ -1,6 +1,6 @@
 # Flight Freedom
 
-Removes the flying ceiling and the no-fly zones in Crimson Desert 2.02.00, lets
+Removes the flying ceiling and the no-fly zones in Crimson Desert 2.03.00, lets
 a mount be summoned inside the Abyss, and stops towns throwing you off in the
 air.
 

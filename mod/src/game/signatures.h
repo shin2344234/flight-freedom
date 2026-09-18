@@ -1,8 +1,8 @@
 #pragma once
 #include <cstdint>
 
-// Byte patterns, offsets and RTTI names for Crimson Desert 2.02.00
-// (exe 1.0.0.2850). Everything here is lifted from Master Looter's
+// Byte patterns, offsets and RTTI names for Crimson Desert 2.03.00
+// (exe 1.0.0.2944). Everything here is lifted from Master Looter's
 // signatures.h except the condition names, which came out of the flight
 // research in private/FEASIBILITY.md.
 namespace fp::sig
@@ -29,7 +29,10 @@ namespace fp::sig
     inline constexpr const char* kStr_VehicleTable = "vehicleinfo";
     inline constexpr const char* kStr_RegionTable  = "regioninfo";
 
-    // What the file data says those two tables hold on 2.02.00, so the probe
+    // What the file data says those two tables hold on 2.03.00, which is what
+    // 2.02.00 held too: every row of both tables changed with 2.03.00 because
+    // the vehicleinfo record grew a byte, but 1350.0 and 30.0 kept their rows
+    // and their packed offsets. This is so the probe
     // can name a runtime offset by matching the count rather than by trusting
     // a disassembly. See private/research/regions.csv and vehicle_heights.py.
     inline constexpr float    kVehicleFlyingCeiling = 1350.0f; // Dragon and Wyvern only
@@ -70,9 +73,20 @@ namespace fp::sig
     // the original bytes are exactly what this build carries, and restored on
     // unload. Found in the from-scratch pass of 13 September 2026; the
     // evidence is in private/ABYSS-SUMMON.md.
+    //
+    // Moved for 2.03.00 (exe 1.0.0.2944) on 17 September 2026. No pattern
+    // search was needed and none was trusted: every site hangs off an RTTI name,
+    // and each was found again from it with private/research/rtti.py. The
+    // condition slots are the last slot of ConditionData_IsAboveRoad and
+    // ConditionData_IsVehicleAllowedInEnteredRegion, both labels read back to
+    // check the pairing. The region routine is the one call inside the second.
+    // Both summon branches are in ClientMercenaryClanActorComponent slot 41.
+    // All four carry the same original bytes as on 2.02.00, and the two
+    // validator branches sit at the same distance from the start of the
+    // validator as before (+0x226 and +0x479), so that function moved whole.
     struct BytePatch { const char* name; uintptr_t rva; const uint8_t* orig; const uint8_t* repl; unsigned len; };
 
-    // +0x16E4380 answers whether any region the actor stands in, or a parent
+    // +0x1778C60 answers whether any region the actor stands in, or a parent
     // of it, lists the mount's category in its block list. It has exactly two
     // callers: the summon validator (ClientMercenaryClanActorComponent slot
     // 41) and ConditionData_IsVehicleAllowedInEnteredRegion, which is what
@@ -80,24 +94,25 @@ namespace fp::sig
     // region. `xor eax,eax; ret` makes it say "not blocked" to both.
     inline constexpr uint8_t kNoFlyZones_Orig[] = { 0x48, 0x89, 0x5C };  // mov [rsp+8], rbx
     inline constexpr uint8_t kNoFlyZones_Repl[] = { 0x31, 0xC0, 0xC3 };  // xor eax,eax; ret
-    inline constexpr BytePatch kPatch_NoFlyZones = { "NoFlyZones", 0x16E4380, kNoFlyZones_Orig, kNoFlyZones_Repl, 3 };
+    inline constexpr BytePatch kPatch_NoFlyZones = { "NoFlyZones", 0x1778C60, kNoFlyZones_Orig, kNoFlyZones_Repl, 3 };
 
-    // +0x9626B9 is the `je` in the validator's helper that skips writing
+    // +0x9DD899 is the `je` in the validator that skips writing
     // eErrNoCallVehicleMercenaryRegion ("Cannot summon in this area.") when
     // the routine above says the region does not block. Made unconditional,
     // so the summon side is covered even with NoFlyZones off.
     inline constexpr uint8_t kAbyssSummon_Orig[] = { 0x74, 0x75 };       // je +0x75
     inline constexpr uint8_t kAbyssSummon_Repl[] = { 0xEB, 0x75 };       // jmp +0x75
-    inline constexpr BytePatch kPatch_AbyssSummon = { "AbyssSummon", 0x9626B9, kAbyssSummon_Orig, kAbyssSummon_Repl, 2 };
+    inline constexpr BytePatch kPatch_AbyssSummon = { "AbyssSummon", 0x9DD899, kAbyssSummon_Orig, kAbyssSummon_Repl, 2 };
 
-    // +0x962466 is the `je` in the validator body that skips writing
+    // +0x9DD646 is the `je` in the validator body that skips writing
     // eErrNoCallVehicleMercenaryMovableNavigation ("Cannot summon here.") when
     // whatever the player is standing on carries no flag. The chain above it
-    // reads transform+0x3F4 for the id of the thing underfoot, resolves that
-    // actor through ClientActorManager slot 5 (+0x837560), takes its gimmick
-    // key from +0x48 and tests byte +0x169 of the gimmickinfo row that
-    // +0x382860 resolves. Three branches already fall through to the allowed
-    // path at +0x962496: nothing underfoot, no key, flag clear. This makes the
+    // reads transform+0x408 for the id of the thing underfoot (+0x3F4 on
+    // 2.02.00; the transform grew), resolves that actor through
+    // ClientActorManager slot 5 (+0x8AE140), takes its gimmick key from +0x48
+    // and tests byte +0x169 of the gimmickinfo row that +0x3885B0 resolves.
+    // Three branches already fall through to the allowed path at +0x9DD676:
+    // nothing underfoot, no key, flag clear. This makes the
     // fourth fall through with them, and both paths run the same release on
     // the way out, so the refcounting is unchanged.
     //
@@ -113,19 +128,20 @@ namespace fp::sig
     // can then be summoned onto a moving platform anywhere in the game.
     inline constexpr uint8_t kPlatformSummon_Orig[] = { 0x74, 0x2E };   // je +0x2E
     inline constexpr uint8_t kPlatformSummon_Repl[] = { 0xEB, 0x2E };   // jmp +0x2E
-    inline constexpr BytePatch kPatch_PlatformSummon = { "PlatformSummon", 0x962466, kPlatformSummon_Orig, kPlatformSummon_Repl, 2 };
+    inline constexpr BytePatch kPatch_PlatformSummon = { "PlatformSummon", 0x9DD646, kPlatformSummon_Orig, kPlatformSummon_Repl, 2 };
 
-    // +0x21B08C0 is ConditionData_IsAboveRoad's condition slot. It reads the
+    // +0x2267C10 is ConditionData_IsAboveRoad's condition slot. It reads the
     // road type and radius baked into the condition object, asks the actor's
     // navigation component, and inverts the answer. Exactly one conditioninfo
-    // row in all 10,785 uses it: row 1011130, "IsInTown() && !IsAboveRoad(
-    // Bird,20)", which is the town dismount. Answering "yes" makes the second
+    // row uses it, out of 10,798 on 2.03.00 and 10,785 on 2.02.00: row
+    // 1011130, "IsInTown() && !IsAboveRoad(Bird,20)", which is the town
+    // dismount. Answering "yes" makes the second
     // half false and the whole row false, and reaches nothing else in the game.
     // IsInTown itself is left alone: 23 rows use it, including bounty
     // escalation and trade pricing.
     inline constexpr uint8_t kTownFlight_Orig[] = { 0x48, 0x83, 0xEC };  // sub rsp, 0x28
     inline constexpr uint8_t kTownFlight_Repl[] = { 0x31, 0xC0, 0xC3 };  // xor eax,eax; ret
-    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x21B08C0, kTownFlight_Orig, kTownFlight_Repl, 3 };
+    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x2267C10, kTownFlight_Orig, kTownFlight_Repl, 3 };
 
     // --- Conditions ---------------------------------------------------------
     // Every ConditionData class ends its vtable with a pair of slots that
