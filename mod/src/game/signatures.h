@@ -38,27 +38,38 @@ namespace fp::sig
     inline constexpr float    kVehicleFlyingCeiling = 1350.0f; // Dragon and Wyvern only
     inline constexpr uint32_t kVehicleRowsWithCeiling = 2;
 
-    // A second per-row float, fourteen bytes before the ceiling in the packed
-    // record: 30.0 on Dragon and 0.0 on every one of the other 33 rows, Wyvern
-    // included. ShawX99 reports the Blackstar lifting off again 15 to 30
-    // seconds after you land and dismount, where the Wyvern stays put
-    // indefinitely, which is the one difference between the two flyers anybody
-    // has named.
+    // Up to 1.1.4 a setting called LandedTimeout wrote a float here, the one
+    // that is 30.0 on Dragon and 0.0 on the other 33 rows, on the theory that it
+    // was the timer that makes Blackstar lift off after you get down. It was
+    // not. The table loader reads each field in record order and names it in
+    // the error it raises when a read fails: record +0x8C is
+    // _checkDistanceToGround and +0x9C is _maxAllowableHeight, and the second
+    // agrees with where the ceiling is found by count. So LandedTimeout was
+    // rewriting Blackstar's ground-check distance, and ShawX99's "nothing
+    // seemed to catch" was the correct result. The setting is retired.
+
+    // --- Blackstar's spawn duration -----------------------------------------
+    // A called mount stays out for characterinfo _callMercenarySpawnDuration,
+    // read by the loader right after _callMercenaryCoolTime; both are 8 bytes,
+    // at +0x70 and +0x78 of the record on 2.03.00. Riding_Dragon_1 (Blackstar)
+    // carries a cooldown of 3600 and a duration of 600. Riding_Wyvern_1000
+    // carries 300 and 0, and the Wyvern is the mount that never leaves, so 0
+    // is the value that means no limit. The same four numbers were there on
+    // 2.02.00. 600 is in the game's units, not real seconds: ShawX99 timed the
+    // liftoff at 15 to 30 seconds.
     //
-    // The field has no name here. The executable's VehicleInfo registration
-    // block lists the class's fields but not in record order, so the only
-    // honest description is "the float that is 30.0 on the mount that leaves
-    // after about thirty seconds and 0.0 on the mount that does not". That is
-    // a correlation and not a reading of the code, which is why the setting is
-    // off by default until somebody has played it.
-    //
-    // What makes the offset safe is the count rather than the arithmetic:
-    // exactly one row carries 30.0, so the FindF32Offset that names the
-    // ceiling by its count of two names this one by its count of one, and
-    // refuses when the count does not land.
-    inline constexpr float       kVehicleLandedTimeout = 30.0f;
-    inline constexpr uint32_t    kVehicleRowsWithLandedTimeout = 1;
-    inline constexpr const char* kVehicleLandedRowKey = "Dragon";
+    // The field is found by those four numbers together, never by the offset:
+    // Blackstar's row must hold 3600 then 600 and the Wyvern's 300 then 0 at the
+    // same place, exactly once in the first kDefScanBytes, or nothing is
+    // written.
+    inline constexpr const char* kStr_CharacterTable      = "characterinfo";
+    inline constexpr const char* kCharBlackstarKey        = "Riding_Dragon_1";
+    inline constexpr const char* kCharWyvernKey           = "Riding_Wyvern_1000";
+    inline constexpr int64_t     kBlackstarCallCoolTime   = 3600;
+    inline constexpr int64_t     kBlackstarSpawnDuration  = 600;
+    inline constexpr int64_t     kWyvernCallCoolTime      = 300;
+    inline constexpr int64_t     kWyvernSpawnDuration     = 0;
+    inline constexpr unsigned    kOff_Char_SpawnDuration  = 0x78; // what the loader writes on 2.03.00; logged, not trusted
     inline constexpr uint32_t kRegionRowsIsTown       = 172;
     inline constexpr uint32_t kRegionRowsLimitRun     = 15;
     inline constexpr uint32_t kRegionRowsNonePlay     = 4;

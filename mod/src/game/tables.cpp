@@ -148,7 +148,6 @@ namespace
     // table a second time.
     fp::tables::Table g_veh;
     int g_ceilingOff = -1;
-    int g_landedOff = -1;
 
     // FLT_MAX is what every ground mount carries, so it means "no ceiling"
     // rather than a number anyone wants to read.
@@ -156,6 +155,26 @@ namespace
     {
         if (v >= FLT_MAX) strcpy_s(out, n, "no ceiling");
         else snprintf(out, n, "%.1f", v);
+    }
+
+    // Same as WriteF32 for an 8-byte field.
+    bool WriteI64(uintptr_t at, int64_t v)
+    {
+        DWORD old = 0;
+        if (!VirtualProtect(reinterpret_cast<LPVOID>(at), sizeof v, PAGE_READWRITE, &old)) return false;
+        __try { *reinterpret_cast<int64_t*>(at) = v; }
+        __except (EXCEPTION_EXECUTE_HANDLER) { VirtualProtect(reinterpret_cast<LPVOID>(at), sizeof v, old, &old); return false; }
+        DWORD tmp = 0;
+        VirtualProtect(reinterpret_cast<LPVOID>(at), sizeof v, old, &tmp);
+        return true;
+    }
+
+    bool ReadI64(uintptr_t at, int64_t* out)
+    {
+        uint32_t lo = 0, hi = 0;
+        if (!fp::mem::Read32(at, &lo) || !fp::mem::Read32(at + 4, &hi)) return false;
+        *out = static_cast<int64_t>((static_cast<uint64_t>(hi) << 32) | lo);
+        return true;
     }
 
     // The def array is heap data and should already be writable; the call is
@@ -232,23 +251,6 @@ namespace fp::tables
             }
         }
 
-        // The landed timeout, by the same count test. One row rather than two,
-        // so the row's key is logged and checked before anything is written.
-        {
-            const int off = FindF32Offset(recs, kVehicleLandedTimeout, kVehicleRowsWithLandedTimeout);
-            if (off < 0)
-                LOG("[table] no offset in a vehicleinfo record holds %.1f on exactly %u row, so the landed timeout "
-                    "was not located. LandedTimeout can do nothing this session.",
-                    kVehicleLandedTimeout, kVehicleRowsWithLandedTimeout);
-            else
-            {
-                LOG_OK("[table] the landed timeout looks like record +0x%03X: %.1f on exactly %u row.",
-                       off, kVehicleLandedTimeout, kVehicleRowsWithLandedTimeout);
-                LogMatching(veh, recs, off, &kVehicleLandedTimeout, 4, 4, "landed");
-                g_landedOff = off;
-            }
-        }
-
         LOG_OK("[table] regioninfo at +0x%llX, %u rows, defs at +0x%02X",
                static_cast<unsigned long long>(mem::Rva(reg.global)), reg.rows, reg.defsOff);
         Copy(reg, recs);
@@ -317,50 +319,73 @@ namespace fp::tables
         return changed;
     }
 
-    int SetLandedTimeout(float value)
+    int SetBlackstarStays()
     {
-        if (g_landedOff < 0 || !g_veh.object)
+        static Table chr;
+        if (!Resolve(kStr_CharacterTable, chr)) return kNotReady;
+
+        // Both rows by name. Blackstar is the one written; the Wyvern is only
+        // read, as the half of the fingerprint that says what "no limit" is.
+        uintptr_t star = 0, wyv = 0;
+        char key[96];
+        for (uint32_t r = 0; r < chr.rows && !(star && wyv); ++r)
         {
-            LOG_ERR("[landed] the landed timeout offset was never established this session, so nothing is written. "
-                    "A guessed offset would land on some other field.");
+            if (!StringKey(chr, r, key, sizeof key)) continue;
+            if (!strcmp(key, kCharBlackstarKey)) star = DefAt(chr, r);
+            else if (!strcmp(key, kCharWyvernKey)) wyv = DefAt(chr, r);
+        }
+        if (!star || !wyv)
+        {
+            LOG_ERR("[blackstar] characterinfo has %u rows and %s%s%s not among them, so nothing is written.",
+                    chr.rows, star ? "" : kCharBlackstarKey, (!star && !wyv) ? " and " : "",
+                    wyv ? "" : kCharWyvernKey);
             return -1;
         }
-        uint32_t stock = 0;
-        memcpy(&stock, &kVehicleLandedTimeout, sizeof stock);
-        int changed = 0;
-        for (uint32_t r = 0; r < g_veh.rows; ++r)
+
+        // Where Blackstar holds cooldown then duration and the Wyvern holds its
+        // own pair at the same place. Exactly one such place, or nothing.
+        int found = -1, hits = 0;
+        bool already = false;
+        for (unsigned off = 8; off + 8 <= kDefScanBytes; off += 4)
         {
-            const uintptr_t def = DefAt(g_veh, r);
-            uint32_t cur = 0;
-            char key[96];
-            if (!def || !mem::Read32(def + g_landedOff, &cur) || cur != stock) continue;
-            if (!StringKey(g_veh, r, key, sizeof key)) strcpy_s(key, "(no key)");
-            // One row matching by value is weaker evidence than the ceiling's
-            // two, so the key has to agree before anything is written. If some
-            // other mount is carrying 30.0 on this build, that is a finding
-            // worth a line rather than a write.
-            if (strcmp(key, kVehicleLandedRowKey) != 0)
+            int64_t sc = 0, sd = 0, wc = 0, wd = 0;
+            if (!ReadI64(star + off - 8, &sc) || !ReadI64(star + off, &sd)) break;
+            if (!ReadI64(wyv + off - 8, &wc) || !ReadI64(wyv + off, &wd)) break;
+            if (sc != kBlackstarCallCoolTime || wc != kWyvernCallCoolTime || wd != kWyvernSpawnDuration) continue;
+            if (sd == kBlackstarSpawnDuration || sd == kWyvernSpawnDuration)
             {
-                LOG_ERR("[landed] the row holding %.1f is %s, not %s, so nothing is written. The field this setting "
-                        "was built for is the one Blackstar carries.", kVehicleLandedTimeout, key, kVehicleLandedRowKey);
-                return -1;
+                ++hits;
+                found = static_cast<int>(off);
+                already = (sd == kWyvernSpawnDuration);
             }
-            if (!WriteF32(def + g_landedOff, value))
-            {
-                LOG_ERR("[landed] %s could not be written", key);
-                continue;
-            }
-            uint32_t after = 0;
-            float back = 0;
-            mem::Read32(def + g_landedOff, &after);
-            memcpy(&back, &after, sizeof back);
-            LOG_OK("[landed] %s landed timeout changed from %.1f to %.1f (read back %.1f). Land, get off, and see "
-                   "whether it stays; this field is identified by what it correlates with, not by its name.",
-                   key, kVehicleLandedTimeout, value, back);
-            ++changed;
         }
-        if (!changed)
-            LOG_ERR("[landed] no vehicleinfo row still held %.1f, so nothing was changed.", kVehicleLandedTimeout);
-        return changed;
+        if (hits != 1)
+        {
+            LOG_ERR("[blackstar] expected one place where %s holds %lld then %lld and %s holds %lld then %lld; "
+                    "found %d, so nothing is written. The game data has changed since this build.",
+                    kCharBlackstarKey, static_cast<long long>(kBlackstarCallCoolTime),
+                    static_cast<long long>(kBlackstarSpawnDuration), kCharWyvernKey,
+                    static_cast<long long>(kWyvernCallCoolTime), static_cast<long long>(kWyvernSpawnDuration), hits);
+            return -1;
+        }
+        LOG_OK("[blackstar] _callMercenarySpawnDuration is characterinfo record +0x%02X%s.", found,
+               found == static_cast<int>(kOff_Char_SpawnDuration) ? ", where the loader writes it" : "");
+        if (already)
+        {
+            LOG("[blackstar] %s already carries a spawn duration of 0, so there is nothing to change.",
+                kCharBlackstarKey);
+            return 0;
+        }
+        if (!WriteI64(star + found, kWyvernSpawnDuration))
+        {
+            LOG_ERR("[blackstar] %s could not be written", kCharBlackstarKey);
+            return -1;
+        }
+        int64_t back = -1;
+        ReadI64(star + found, &back);
+        LOG_OK("[blackstar] spawn duration changed from %lld to %lld (read back %lld), the Wyvern's own value. "
+               "Blackstar should now stay where you get off it.", static_cast<long long>(kBlackstarSpawnDuration),
+               static_cast<long long>(kWyvernSpawnDuration), static_cast<long long>(back));
+        return back == kWyvernSpawnDuration ? 1 : -1;
     }
 }

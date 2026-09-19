@@ -68,7 +68,8 @@ namespace
         bool  abyssSummon;    // validator never refuses a summon for the region
         bool  platformSummon; // validator never refuses a summon for what is underfoot
         bool  townFlight;     // the town dismount condition can never be true
-        float landedTimeout;  // Blackstar's landed timeout, 0 leaves the game's 30
+        bool  blackstarStays; // Blackstar gets the Wyvern's spawn duration of 0
+        bool  oldLanded;      // an ini still setting the retired LandedTimeout
         float aboveCeiling;   // research only: height-based region override
         bool  summonAnywhere; // research only
     };
@@ -82,7 +83,8 @@ namespace
         s.abyssSummon    = ReadSetting(L"AbyssSummon", L"1") != 0.0f;
         s.platformSummon = ReadSetting(L"PlatformSummon", L"0") != 0.0f;
         s.townFlight     = ReadSetting(L"TownFlight", L"1") != 0.0f;
-        s.landedTimeout  = ReadSetting(L"LandedTimeout", L"0");
+        s.blackstarStays = ReadSetting(L"BlackstarStays", L"1") != 0.0f;
+        s.oldLanded      = ReadSetting(L"LandedTimeout", L"0") != 0.0f;
         s.aboveCeiling   = ReadSetting(L"AboveCeiling", L"0");
         s.summonAnywhere = ReadSetting(L"SummonAnywhere", L"0") != 0.0f;
         return s;
@@ -116,10 +118,13 @@ namespace
         const Settings s = ReadSettings();
 
         LOG("[mod] %s %s for Crimson Desert 2.03.00 (exe 1.0.0.2944). Settings: Ceiling=%s NoFlyZones=%d "
-            "AbyssSummon=%d PlatformSummon=%d TownFlight=%d LandedTimeout=%.1f Probe=%d", FP_NAME, FP_VERSION,
+            "AbyssSummon=%d PlatformSummon=%d TownFlight=%d BlackstarStays=%d Probe=%d", FP_NAME, FP_VERSION,
             s.ceiling == 0.0f ? "0 (game's own)" : (s.ceiling < 0.0f ? "-1 (none)" : "custom"),
             s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.platformSummon ? 1 : 0, s.townFlight ? 1 : 0,
-            s.landedTimeout, s.probe ? 1 : 0);
+            s.blackstarStays ? 1 : 0, s.probe ? 1 : 0);
+        if (s.oldLanded)
+            LOG("[mod] LandedTimeout is set in the ini and is ignored. It never reached a timer: it wrote Blackstar's "
+                "ground-check distance. BlackstarStays replaces it and is on unless set to 0.");
         LOG("[mod] game image at 0x%p, %zu bytes",
             reinterpret_cast<void*>(fp::mem::Game().base), fp::mem::Game().size);
 
@@ -181,8 +186,11 @@ namespace
                 LOG("[mod] AboveCeiling and SummonAnywhere only apply with Probe=1 and are ignored.");
         }
 
-        int waited = 0, tick = 0;
-        bool reported = false;
+        int waited = 0, tick = 0, starTries = 0;
+        bool reported = false, starDone = !s.blackstarStays;
+        if (!s.blackstarStays)
+            LOG("[blackstar] BlackstarStays is 0, so Blackstar keeps the game's spawn duration and lifts off again "
+                "a little while after you get down.");
         while (!g_stop.load())
         {
             if (!reported)
@@ -194,19 +202,24 @@ namespace
                         LOG("[ceiling] Ceiling is 0, so the game's %.1f stands.", fp::sig::kVehicleFlyingCeiling);
                     else
                         fp::tables::SetFlyingCeiling(s.ceiling < 0 ? FLT_MAX : s.ceiling);
-
-                    // Off by default: the field is identified by correlation
-                    // and nobody has played a build with it changed.
-                    if (s.landedTimeout == 0.0f)
-                        LOG("[landed] LandedTimeout is 0, so Blackstar keeps the game's %.1f and lifts off again "
-                            "after it. Set -1 to give it the Wyvern's 0, or a number of seconds of your own.",
-                            fp::sig::kVehicleLandedTimeout);
-                    else
-                        fp::tables::SetLandedTimeout(s.landedTimeout < 0 ? 0.0f : s.landedTimeout);
                 }
                 else if (++waited == 120)
                     LOG_ERR("[table] vehicleinfo and regioninfo were still not loaded after two minutes. The ceiling "
                             "will keep trying, but something about the resolver has changed on this build.");
+            }
+            // characterinfo is its own table and may land a poll or two after
+            // the other two, so it is asked on each pass until it answers,
+            // for two minutes at most.
+            if (reported && !starDone)
+            {
+                const int r = fp::tables::SetBlackstarStays();
+                if (r != fp::tables::kNotReady) starDone = true;
+                else if (++starTries == 60)   // a pass is 2 seconds
+                {
+                    LOG_ERR("[blackstar] characterinfo was still not loaded after two minutes, so Blackstar keeps "
+                            "the game's spawn duration this session.");
+                    starDone = true;
+                }
             }
             if (s.probe)
             {

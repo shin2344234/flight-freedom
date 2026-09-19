@@ -42,7 +42,7 @@ All in `FlightFreedom.ini`, section `[settings]`.
 | `AbyssSummon` | `1` | The summon validator never refuses for the region. Redundant with `NoFlyZones=1`, kept so Abyss summons work with `NoFlyZones=0`. |
 | `PlatformSummon` | `0` | The summon validator never refuses for what you are standing on. That check is what blocks a summon on an Abyss Nexus teleport circle. Off by default, see below. |
 | `TownFlight` | `1` | Flying low over a town off the road never dismounts you. |
-| `LandedTimeout` | `0` | Blackstar lifts off again about 30 seconds after you land and get off. `0` leaves that, `-1` writes the Wyvern's `0.0`, a number sets seconds of your own. Off by default, see below. |
+| `BlackstarStays` | `1` | Blackstar stays where you get off it instead of lifting off a little later. `0` keeps the game's behaviour. |
 | `Probe` | `0` | Research mode. Hooks every mount condition, reads `[sites]`, `[patch]` and `[watch]`, and makes the log large. |
 
 `AboveCeiling` and `SummonAnywhere` are research overrides and only apply
@@ -55,9 +55,18 @@ mount while it's on the ground".
 The ceiling is a float in the loaded `vehicleinfo` table, 1350 on Blackstar
 and the Wyvern and none on every other mount. The plugin resolves the table
 by name at startup, finds the field by its row count, writes the new value
-over the two rows and reads it back. `LandedTimeout` works the same way on
-the float that is 30.0 on Blackstar and 0.0 on every other mount, and writes
-nothing unless the row carrying it is Blackstar's.
+over the two rows and reads it back.
+
+A called mount stays out for its spawn duration in `characterinfo`. Blackstar
+carries 600 and the Wyvern 0, which is why the Wyvern never leaves.
+`BlackstarStays` gives Blackstar the 0. The field is found by four values
+together: Blackstar's cooldown and duration, 3600 and 600, next to the
+Wyvern's 300 and 0 at the same place. If that is not found exactly once,
+nothing is written.
+
+`LandedTimeout`, which earlier versions shipped for the same problem, is
+retired. It wrote a `vehicleinfo` float that the game's own loader names
+`_checkDistanceToGround`, so it could never have changed the liftoff.
 
 Everything else is one routine. Each region in `regioninfo` carries a list
 of mount categories it blocks, and a routine asks whether the region you are
@@ -93,12 +102,9 @@ The hooks and patches are restored when the plugin unloads.
   build, and the log names each one that refused. The ceiling is found by
   name and not by address, so it can keep working after an update that stops
   the patches.
-- `PlatformSummon` and `LandedTimeout` are off by default because neither has
-  been played yet. `PlatformSummon` is read out of the disassembly and one
-  report, and it also allows a summon on top of a moving platform anywhere in
-  the game. `LandedTimeout`'s field has no name in the executable. It is
-  identified only by being 30.0 on the mount that leaves and 0.0 on the one
-  that stays.
+- `PlatformSummon` is off by default because nobody has played it yet. It is
+  read out of the disassembly and one report, and it also allows a summon on
+  top of a moving platform anywhere in the game.
 - `NoFlyZones=1` removes every region's mount block, not only the Abyss and
   the altitude zones. Towns were never on the list on this build, so nothing
   changes there.

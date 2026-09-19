@@ -41,13 +41,14 @@ namespace fp::tables
     // reading the rows back.
     int SetFlyingCeiling(float value);
 
-    // Write `value` over the one vehicleinfo row whose landed-timeout float is
-    // the stock 30.0, which is Blackstar and no other mount. Returns the count,
-    // or -1 when the offset was never established or the row carrying it is not
-    // the one expected, in which case nothing is written.
+    // Give Blackstar the Wyvern's spawn duration of 0, so a Blackstar you get
+    // off stays where you left it. characterinfo is resolved here rather than
+    // in Probe(), so a failure to find it never costs the ceiling.
     //
-    // Probe() must have run. The row is checked by its string key before the
-    // write and not only by value, because one matching row is weaker evidence
-    // than the ceiling's two and a wrong row here would edit another mount.
-    int SetLandedTimeout(float value);
+    // Returns 1 when written and read back, 0 when Blackstar already carries
+    // 0, -1 when the field could not be identified or the write failed (nothing
+    // is written in either case), and kNotReady while characterinfo is not
+    // loaded yet, which is worth asking again.
+    inline constexpr int kNotReady = -2;
+    int SetBlackstarStays();
 }

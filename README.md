@@ -72,7 +72,7 @@ below is also the plugin's own.
 | `AbyssSummon` | `1` | `1` means the summon check never refuses for the region. |
 | `PlatformSummon` | `0` | `1` means the summon check never refuses for what you are standing on, which is what stops a summon on an Abyss Nexus circle. Off by default: read out of the disassembly and one report, not played yet. |
 | `TownFlight` | `1` | `1` means flying low over a town off the road never dismounts you. |
-| `LandedTimeout` | `0` | Blackstar lifts off again after about 30 seconds on the ground. `0` leaves that, `-1` writes the Wyvern's `0.0`, or give it seconds of your own. Off by default: the field is identified by what it correlates with, not by its name. |
+| `BlackstarStays` | `1` | Blackstar stays where you get off it, as the Wyvern does. It gets the Wyvern's spawn duration of `0` in place of its own `600`. `0` keeps the game's behaviour. Replaces `LandedTimeout`, which is retired and ignored. |
 | `Probe` | `0` | Research mode. Hooks every mount-related check and reads the `[sites]`, `[patch]` and `[watch]` sections. The log becomes large. |
 
 `AboveCeiling` and `SummonAnywhere` are research overrides that apply only with
