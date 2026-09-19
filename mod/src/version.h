@@ -1,6 +1,6 @@
 #pragma once
 
-#define FP_VERSION  "1.1.4"
+#define FP_VERSION  "1.1.5"
 #define FP_NAME     "Flight Freedom"
 // Base name of the plugin's files next to it: FlightFreedom.asi, .ini, .log.
 #define FP_FILEBASE L"FlightFreedom"
