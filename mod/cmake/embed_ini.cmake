@@ -11,7 +11,7 @@
 file(READ "${IN}" hex HEX)
 string(LENGTH "${hex}" nibbles)
 math(EXPR count "${nibbles} / 2")
-string(REGEX REPLACE "(..)" "0x\1," bytes "${hex}")
+string(REGEX REPLACE "(..)" "0x\\1," bytes "${hex}")
 
 file(WRITE "${OUT}"
 "// Generated from FlightFreedom.ini by cmake/embed_ini.cmake. Do not edit.\n"
