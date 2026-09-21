@@ -23,7 +23,11 @@ namespace
     // way and lost the six-second window it was recording. The dump pair is
     // rate-limited per condition by the clock, which is what A7 asked for
     // instead of a transition count that a fast flip-flop burns through.
-    constexpr DWORD kDumpThrottleMs = 500;
+    // Was a fixed 500 ms. A research run now captures everything and this is
+    // 0, which is off; the ring still collapses identical repeats, so what a
+    // wide dump costs is repetition rather than width. Set DumpThrottleMs in
+    // the ini to put the limit back on a condition that is drowning a session.
+    volatile LONG g_dumpThrottleMs = 0;
 
     struct Slot
     {
@@ -35,9 +39,11 @@ namespace
         // Budgets. Region and height get large ones in Install() because they
         // are the subject; the rest stay small because ridetype alone can
         // refuse many times a second.
-        volatile LONG describeLeft = 2;
-        volatile LONG linesLeft = 60;    // transition lines before the summary takes over
-        volatile LONG refusalsLeft = 8;  // positioned refusals, each with a wide dump
+        // Negative is no limit, which is what a research run wants. These are
+        // only reached with Probe=1.
+        volatile LONG describeLeft = -1;
+        volatile LONG linesLeft = -1;    // transition lines before the summary takes over
+        volatile LONG refusalsLeft = -1; // positioned refusals, each with a wide dump
         volatile LONG lastDumpTick = 0;  // GetTickCount at this slot's last wide dump
         volatile LONG dumpThrottled = 0; // dumps this slot has skipped to the clock
         volatile LONG dumpNoted = 0;     // whether the rate limit has been said once
@@ -441,9 +447,9 @@ namespace
         // yet, which answers "could not tell". That is the moment the whole
         // Abyss question turns on, so it gets the full picture.
         if (i == 1 && a == static_cast<LONG>(kCondUnknown) &&
-            InterlockedCompareExchange(&s.refusalsLeft, 0, 0) > 0)
+            InterlockedCompareExchange(&s.refusalsLeft, 0, 0) != 0)
         {
-            InterlockedDecrement(&s.refusalsLeft);
+            if (InterlockedCompareExchange(&s.refusalsLeft, 0, 0) > 0) InterlockedDecrement(&s.refusalsLeft);
             LOG("[cond] height answered 'could not tell', which is a summon attempt with no vehicle yet");
             fp::conditions::DumpActors("summon attempt");
             fp::conditions::DumpRing("summon attempt");
@@ -507,9 +513,9 @@ namespace
         // refuses many times a second by design, flood session four's log and
         // drown the climb it was recording.
         if (a == static_cast<LONG>(kCondNo) && was != a &&
-            InterlockedCompareExchange(&s.refusalsLeft, 0, 0) > 0)
+            InterlockedCompareExchange(&s.refusalsLeft, 0, 0) != 0)
         {
-            InterlockedDecrement(&s.refusalsLeft);
+            if (InterlockedCompareExchange(&s.refusalsLeft, 0, 0) > 0) InterlockedDecrement(&s.refusalsLeft);
             float p[3] = {};
             if (fp::conditions::ReadPlayerPos(p))
                 LOG("[cond] %s refused at (%.1f, %.1f, %.1f)", kConditions[i].shortName, p[0], p[1], p[2]);
@@ -525,7 +531,8 @@ namespace
             {
                 const DWORD now  = GetTickCount();
                 const DWORD last = static_cast<DWORD>(InterlockedCompareExchange(&s.lastDumpTick, 0, 0));
-                if (last == 0 || now - last >= kDumpThrottleMs)
+                const DWORD throttle = static_cast<DWORD>(InterlockedCompareExchange(&g_dumpThrottleMs, 0, 0));
+                if (!throttle || last == 0 || now - last >= throttle)
                 {
                     InterlockedExchange(&s.lastDumpTick, static_cast<LONG>(now));
                     fp::conditions::DumpActors(kConditions[i].shortName);
@@ -538,7 +545,7 @@ namespace
                         LOG("[cond] %s is refusing faster than one dump per %lu ms, so its wide dumps are "
                             "rate-limited from here. Every call is still counted and still goes into the ring; "
                             "the summary says how many dumps were skipped.",
-                            kConditions[i].shortName, static_cast<unsigned long>(kDumpThrottleMs));
+                            kConditions[i].shortName, static_cast<unsigned long>(throttle));
                 }
             }
         }
@@ -550,8 +557,9 @@ namespace
         const bool changed = (was != -1 && was != a);
         if (n <= 3 || changed)
         {
-            if (InterlockedCompareExchange(&s.linesLeft, 0, 0) <= 0) return answer;
-            if (InterlockedDecrement(&s.linesLeft) == 0)
+            const LONG left = InterlockedCompareExchange(&s.linesLeft, 0, 0);
+            if (left == 0) return answer;
+            if (left > 0 && InterlockedDecrement(&s.linesLeft) == 0)
             {
                 LOG("[cond] %s has answered %ld times and changed often enough to fill its share of the log. "
                     "Per-call lines stop here; the summary keeps counting.", kConditions[i].shortName, n);
@@ -559,9 +567,9 @@ namespace
             }
             LOG("[cond] %s answered %s (call %ld%s)", kConditions[i].shortName, AnswerWord(a), n,
                 changed ? ", changed" : "");
-            if (InterlockedCompareExchange(&s.describeLeft, 0, 0) > 0)
+            if (InterlockedCompareExchange(&s.describeLeft, 0, 0) != 0)
             {
-                InterlockedDecrement(&s.describeLeft);
+                if (InterlockedCompareExchange(&s.describeLeft, 0, 0) > 0) InterlockedDecrement(&s.describeLeft);
                 Describe(i, self, a2, a3, a4);
             }
         }
@@ -763,6 +771,10 @@ namespace fp::conditions
     // Raw qwords of an object, with a class name wherever one resolves. The
     // RTTI sweep already names pointers; this also shows the values that are
     // not pointers, which is where a row key or a type enum would sit.
+    // Every line carries the tag. The writer thread takes lines from every
+    // game thread in arrival order, so two dumps in flight at once interleave,
+    // and a field line that named no owner could not be told from the other
+    // dump's.
     void DumpObject(const char* what, uintptr_t obj, unsigned bytes)
     {
         if (!fp::mem::Plausible(obj) || !fp::mem::Readable(obj, bytes))
@@ -778,12 +790,17 @@ namespace fp::conditions
             {
                 uint64_t raw = 0;
                 if (fp::mem::Read64(obj + off, &raw))
-                    LOG("[obj]   +0x%03X  %016llX", off, static_cast<unsigned long long>(raw));
+                    LOG("[obj] %s   +0x%03X  %016llX", what, off, static_cast<unsigned long long>(raw));
                 continue;
             }
             const char* n = fp::mem::RttiShort(v);
-            if (n) LOG("[obj]   +0x%03X  %016llX  %s", off, static_cast<unsigned long long>(v), n);
-            else   LOG("[obj]   +0x%03X  %016llX%s", off, static_cast<unsigned long long>(v),
+            char text[80];
+            if (n) LOG("[obj] %s   +0x%03X  %016llX  %s", what, off, static_cast<unsigned long long>(v), n);
+            else if (fp::mem::ReadCString(v, text, sizeof text) && strlen(text) >= 3)
+                LOG("[obj] %s   +0x%03X  %016llX  \"%s\"", what, off, static_cast<unsigned long long>(v), text);
+            else if (fp::mem::ReadEngineString(v, text, sizeof text) && strlen(text) >= 2)
+                LOG("[obj] %s   +0x%03X  %016llX  {es \"%s\"}", what, off, static_cast<unsigned long long>(v), text);
+            else   LOG("[obj] %s   +0x%03X  %016llX%s", what, off, static_cast<unsigned long long>(v),
                        fp::mem::InImage(v) ? "  (in image)" : "");
         }
     }

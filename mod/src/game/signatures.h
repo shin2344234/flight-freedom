@@ -1,8 +1,8 @@
 #pragma once
 #include <cstdint>
 
-// Byte patterns, offsets and RTTI names for Crimson Desert 2.03.00
-// (exe 1.0.0.2944). Everything here is lifted from Master Looter's
+// Byte patterns, offsets and RTTI names for Crimson Desert 2.03.01
+// (exe 1.0.0.2949). Everything here is lifted from Master Looter's
 // signatures.h except the condition names, which came out of the flight
 // research in private/FEASIBILITY.md.
 namespace fp::sig
@@ -38,6 +38,18 @@ namespace fp::sig
     inline constexpr float    kVehicleFlyingCeiling = 1350.0f; // Dragon and Wyvern only
     inline constexpr uint32_t kVehicleRowsWithCeiling = 2;
 
+    // Research only. The float that is 30.0 on Dragon and 0.0 on all 33 other
+    // rows. 1.1.2 shipped it as LandedTimeout on nothing more than that, and
+    // the loader walk calls the field at +0x8C _checkDistanceToGround, so it
+    // was retired. Then the takeoff was measured twice at exactly 32 seconds
+    // after the dismount, fixed rather than random, on the one mount carrying
+    // a 30. ShawX99's test only ever wrote 0, which proves nothing if 0 means
+    // "no wait". Writing a large number is the test that separates the two,
+    // and it is behind Probe=1 until it answers.
+    inline constexpr float    kVehicleGroundCheck = 30.0f;
+    inline constexpr uint32_t kVehicleRowsWithGroundCheck = 1;
+    inline constexpr const char* kVehicleGroundCheckRow = "Dragon";
+
     // Up to 1.1.4 a setting called LandedTimeout wrote a float here, the one
     // that is 30.0 on Dragon and 0.0 on the other 33 rows, on the theory that it
     // was the timer that makes Blackstar lift off after you get down. It was
@@ -58,10 +70,13 @@ namespace fp::sig
     // 2.02.00. 600 is in the game's units, not real seconds: ShawX99 timed the
     // liftoff at 15 to 30 seconds.
     //
-    // The field is found by those four numbers together, never by the offset:
-    // Blackstar's row must hold 3600 then 600 and the Wyvern's 300 then 0 at the
-    // same place, exactly once in the first kDefScanBytes, or nothing is
-    // written.
+    // The field is found by the two durations, never by the offset: the place
+    // where Blackstar holds 600 and the Wyvern holds 0. The cooldowns are only
+    // a tiebreak if more than one offset does that, and the loader's own offset
+    // is the tiebreak after them. 1.1.5 required all four numbers and that was
+    // too much. A cooldown mod loading first rewrites two of them, nothing
+    // matched anywhere, and DavidLionHeart and ShawX99 both got a Blackstar
+    // that still flew off. Anchor on the values the setting is about.
     inline constexpr const char* kStr_CharacterTable      = "characterinfo";
     inline constexpr const char* kCharBlackstarKey        = "Riding_Dragon_1";
     inline constexpr const char* kCharWyvernKey           = "Riding_Wyvern_1000";
@@ -69,7 +84,37 @@ namespace fp::sig
     inline constexpr int64_t     kBlackstarSpawnDuration  = 600;
     inline constexpr int64_t     kWyvernCallCoolTime      = 300;
     inline constexpr int64_t     kWyvernSpawnDuration     = 0;
-    inline constexpr unsigned    kOff_Char_SpawnDuration  = 0x78; // what the loader writes on 2.03.00; logged, not trusted
+    inline constexpr unsigned    kOff_Char_SpawnDuration  = 0x78; // what the loader writes on 2.03.00; the last tiebreak, never the first test
+    inline constexpr unsigned    kOff_Char_CallCoolTime   = 0x70; // the field ahead of it, read back into failure logs
+
+    // --- Naming a field out of the loader's own code ------------------------
+    // The table loader reads one field at a time and raises
+    // "<Table>의 <_field>를 읽어들이는데 실패했다." when a read fails. That is
+    // how these two fields were named in the first place, and doing it at
+    // runtime instead of in a disassembler is the one way of finding the
+    // offset that a mod editing characterinfo.pabgb cannot reach. On 2.03.00:
+    //
+    //     0x14F04DE  48 8D 56 78           lea  rdx, [rsi+0x78]   the offset
+    //     0x14F04E2  41 B8 08 00 00 00     mov  r8d, 8            the size
+    //     0x14F04E8  48 8B CF              mov  rcx, rdi
+    //     0x14F04EB  FF 50 08              call qword ptr [rax+8] the reader
+    //     0x14F04EE  84 C0                 test al, al
+    //     0x14F04F0  75 09                 jne  short ok
+    //     0x14F04F2  48 8D 05 ...          lea  rax, [rip+message]
+    //
+    // The message is found first and the read is walked back to, because the
+    // message is the part that names the field. What sits between the two
+    // varies: _callMercenaryCoolTime at +0x70 has two unrelated instructions
+    // in the gap, which is why the walk back takes the nearest read and then
+    // insists on exactly one call to the reader between it and the message.
+    inline constexpr const char* kSig_LeaRip      = "48 8D ?? ?? ?? ?? ??";
+    inline constexpr const char* kSig_FieldRead8  = "48 8D 56 ?? 41 B8 08 00 00 00";
+    inline constexpr const char* kSig_FieldRead32 = "48 8D 96 ?? ?? ?? ?? 41 B8 08 00 00 00";
+    inline constexpr const char* kSig_CallReader  = "FF 50 08";
+    inline constexpr unsigned    kMax_ReadToMessage = 0x40;
+    inline constexpr const char* kStr_CharacterInfoMsg = "CharacterInfo";
+    inline constexpr const char* kField_SpawnDuration  = "_callMercenarySpawnDuration";
+    inline constexpr const char* kField_CallCoolTime   = "_callMercenaryCoolTime";
     inline constexpr uint32_t kRegionRowsIsTown       = 172;
     inline constexpr uint32_t kRegionRowsLimitRun     = 15;
     inline constexpr uint32_t kRegionRowsNonePlay     = 4;
@@ -95,9 +140,17 @@ namespace fp::sig
     // All four carry the same original bytes as on 2.02.00, and the two
     // validator branches sit at the same distance from the start of the
     // validator as before (+0x226 and +0x479), so that function moved whole.
+    //
+    // Moved for 2.03.01 (exe 1.0.0.2949) on 21 September 2026 the same way.
+    // Code from somewhere after +0x9DD760 shifted by exactly +0x10, which
+    // moved NoFlyZones (+0x1778C60 -> +0x1778C70) and TownFlight (+0x2267C10
+    // -> +0x2267C20) and left both summon branches where they were. Original
+    // bytes unchanged, the region routine still has exactly the same two
+    // callers, and conditioninfo and vehicleinfo are byte for byte the
+    // 2.03.00 tables, so the one-row argument for TownFlight still holds.
     struct BytePatch { const char* name; uintptr_t rva; const uint8_t* orig; const uint8_t* repl; unsigned len; };
 
-    // +0x1778C60 answers whether any region the actor stands in, or a parent
+    // +0x1778C70 answers whether any region the actor stands in, or a parent
     // of it, lists the mount's category in its block list. It has exactly two
     // callers: the summon validator (ClientMercenaryClanActorComponent slot
     // 41) and ConditionData_IsVehicleAllowedInEnteredRegion, which is what
@@ -105,7 +158,7 @@ namespace fp::sig
     // region. `xor eax,eax; ret` makes it say "not blocked" to both.
     inline constexpr uint8_t kNoFlyZones_Orig[] = { 0x48, 0x89, 0x5C };  // mov [rsp+8], rbx
     inline constexpr uint8_t kNoFlyZones_Repl[] = { 0x31, 0xC0, 0xC3 };  // xor eax,eax; ret
-    inline constexpr BytePatch kPatch_NoFlyZones = { "NoFlyZones", 0x1778C60, kNoFlyZones_Orig, kNoFlyZones_Repl, 3 };
+    inline constexpr BytePatch kPatch_NoFlyZones = { "NoFlyZones", 0x1778C70, kNoFlyZones_Orig, kNoFlyZones_Repl, 3 };
 
     // +0x9DD899 is the `je` in the validator that skips writing
     // eErrNoCallVehicleMercenaryRegion ("Cannot summon in this area.") when
@@ -141,7 +194,7 @@ namespace fp::sig
     inline constexpr uint8_t kPlatformSummon_Repl[] = { 0xEB, 0x2E };   // jmp +0x2E
     inline constexpr BytePatch kPatch_PlatformSummon = { "PlatformSummon", 0x9DD646, kPlatformSummon_Orig, kPlatformSummon_Repl, 2 };
 
-    // +0x2267C10 is ConditionData_IsAboveRoad's condition slot. It reads the
+    // +0x2267C20 is ConditionData_IsAboveRoad's condition slot. It reads the
     // road type and radius baked into the condition object, asks the actor's
     // navigation component, and inverts the answer. Exactly one conditioninfo
     // row uses it, out of 10,798 on 2.03.00 and 10,785 on 2.02.00: row
@@ -152,7 +205,28 @@ namespace fp::sig
     // escalation and trade pricing.
     inline constexpr uint8_t kTownFlight_Orig[] = { 0x48, 0x83, 0xEC };  // sub rsp, 0x28
     inline constexpr uint8_t kTownFlight_Repl[] = { 0x31, 0xC0, 0xC3 };  // xor eax,eax; ret
-    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x2267C10, kTownFlight_Orig, kTownFlight_Repl, 3 };
+    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x2267C20, kTownFlight_Orig, kTownFlight_Repl, 3 };
+
+    // --- Blackstar's takeoff (BlackstarStays) --------------------------------
+    // Every action an AI chart starts goes through one function (+0x21C0940
+    // on 2.03.01, +0x21C0930 on 2.03.00). It takes the actor's navigation
+    // component in rcx and the request in r9, and the request's first qword
+    // is the action's hash. A landed mount starts 0x31D37232, and 30.03 s
+    // later its chart starts 0x513043A8 and it flies off; the same two hashes
+    // appeared in every session measured on 21 September 2026. Refusing the
+    // second is what keeps Blackstar on the ground.
+    //
+    // Found by its entry: three null checks on the request, then a flag test
+    // on what it points at. Unique on 2.03.01.
+    inline constexpr const char* kSig_StartAction =
+        "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 50 49 8B 41 08 49 8B D9 49 8B F0 48 8B F9 "
+        "48 85 C0 74 ?? 49 83 79 10 00 74 ?? 49 83 79 18 00 74 ?? 49 8B 49 18 F6 81 0E 01 00 00 10";
+    // Its one caller, in the chart's node runner, which loads rcx from
+    // [[[actor+8]+0x68]+0x1A8] and calls it. Used to confirm the entry.
+    inline constexpr const char* kSig_StartActionCall =
+        "48 8B 46 08 48 8B 48 68 4C 8B CD 4D 8B C4 48 8B 89 A8 01 00 00 E8";
+    inline constexpr unsigned kOff_StartActionCall_E8 = 0x15;
+    inline constexpr uint64_t kAction_MountTakeoff = 0x513043A8;
 
     // --- Conditions ---------------------------------------------------------
     // Every ConditionData class ends its vtable with a pair of slots that

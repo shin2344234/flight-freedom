@@ -54,6 +54,7 @@ add_library(FlightProbe SHARED
     src/game/tables.cpp
     src/game/conditions.cpp
     src/game/sites.cpp
+    src/game/takeoff.cpp
 )
 
 target_include_directories(FlightProbe PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated" ${minhook_SOURCE_DIR}/src/hde)
@@ -78,6 +79,7 @@ add_executable(SitesTest
     src/game/tables.cpp
     src/game/conditions.cpp
     src/game/sites.cpp
+    src/game/takeoff.cpp
 )
 target_include_directories(SitesTest PRIVATE src ${minhook_SOURCE_DIR}/src/hde)
 target_link_libraries(SitesTest PRIVATE minhook)

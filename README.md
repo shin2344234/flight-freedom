@@ -1,13 +1,14 @@
 # Flight Freedom
 
-Removes the flying ceiling and the no-fly zones in Crimson Desert 2.03.00, lets
-a mount be summoned inside the Abyss, and stops towns throwing you off in the
-air.
+Removes the flying ceiling and the no-fly zones in Crimson Desert 2.03.01, lets
+a mount be summoned inside the Abyss, stops towns throwing you off in the air,
+and keeps Blackstar where you leave him.
 
 Blackstar and the Wyvern stop climbing at 1350, and a little over 1500 the game
 takes the mount away from you. Mounts cannot be called on the floor of the
-Abyss. Flying low across a town off the road dismounts you. Each of those is a
-value or a branch that the plugin changes in memory at startup, with no game
+Abyss. Flying low across a town off the road dismounts you. Blackstar flies off
+on his own about 30 seconds after he lands. Each of those is a value, a branch
+or a single call that the plugin changes in memory at startup, with no game
 file touched and nothing written to a save.
 
 [Plugin manual](mod/README.md)
@@ -31,6 +32,12 @@ file touched and nothing written to a save.
   make the road half always answer yes. It reaches one condition row in the
   game; the in-town test is left alone, since 23 other rows use it for bounty
   escalation and trade pricing.
+- **Blackstar staying put.** About 30 seconds after Blackstar lands, his AI
+  starts a takeoff action and he flies away. Every action an AI starts goes
+  through one function in the game. The plugin hooks it and refuses that one
+  action by its id, and lets everything else through. He stays where you left
+  him, you can still ride him, and summoning him from more than 30 m away
+  works as before.
 
 Every patch checks the bytes it is about to change and refuses on any other
 game build, with a line in the log rather than a damaged game. All are restored
@@ -72,7 +79,7 @@ below is also the plugin's own.
 | `AbyssSummon` | `1` | `1` means the summon check never refuses for the region. |
 | `PlatformSummon` | `0` | `1` means the summon check never refuses for what you are standing on, which is what stops a summon on an Abyss Nexus circle. Off by default: read out of the disassembly and one report, not played yet. |
 | `TownFlight` | `1` | `1` means flying low over a town off the road never dismounts you. |
-| `BlackstarStays` | `1` | Blackstar stays where you get off it, as the Wyvern does. It gets the Wyvern's spawn duration of `0` in place of its own `600`. `0` keeps the game's behaviour. Replaces `LandedTimeout`, which is retired and ignored. |
+| `BlackstarStays` | `1` | Blackstar stays where you get off it instead of flying away about 30 seconds later. `0` keeps the game's behaviour. In 1.1.5 this changed his spawn duration, which did nothing, and an old number left here is read as `1`. `LandedTimeout` is retired and ignored. |
 | `Probe` | `0` | Research mode. Hooks every mount-related check and reads the `[sites]`, `[patch]` and `[watch]` sections. The log becomes large. |
 
 `AboveCeiling` and `SummonAnywhere` are research overrides that apply only with

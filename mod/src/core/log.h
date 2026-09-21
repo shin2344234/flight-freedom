@@ -29,7 +29,14 @@ namespace fp::Log
     int RemovePerProcessLogs(const wchar_t* base);
 
     bool Claimed();
-    void Shutdown();
+    // Start the background writer. Call it after Claim(): until then a
+    // line is written on the calling thread, which is what startup wants
+    // and what a frame does not.
+    void StartWriter();
+
+    // processExiting: called from DLL_PROCESS_DETACH during process exit, when
+    // every other thread is already gone.
+    void Shutdown(bool processExiting = false);
     void Snapshot(std::vector<std::string>& out, int maxLines);
 }
 

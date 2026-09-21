@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include <cstdarg>
 #include <cstdio>
+#include <condition_variable>
 #include <deque>
 #include <mutex>
 
@@ -16,6 +17,45 @@ namespace fp::Log
     static FILE*                    g_file    = nullptr;
     static bool                     g_claimed = false;
     static constexpr size_t         kKeep     = 400;
+
+    // The file I/O runs on its own thread. It used to run on whichever thread
+    // called LOG, with an fflush per line, and the game's thread is one of
+    // them: a probe run writing 2,760 lines a second was making 2,760 blocking
+    // flushes a second inside the game's frame, which was enough to stop a
+    // held d-pad direction registering as held. Nothing is dropped or capped;
+    // the writer just does the waiting instead of the game.
+    //
+    // It flushes whenever it empties the queue, so an idle session is on disk
+    // within milliseconds and a crash loses at most what was written in the
+    // time one batch takes. Under load it batches, which is the point.
+    static std::deque<std::string>  g_queue;
+    static std::condition_variable  g_wake;
+    static HANDLE                   g_writer  = nullptr;
+    static bool                     g_stopping = false;
+
+    static DWORD WINAPI WriterMain(LPVOID)
+    {
+        std::deque<std::string> batch;
+        for (;;)
+        {
+            {
+                std::unique_lock<std::mutex> lk(g_mu);
+                g_wake.wait(lk, [] { return g_stopping || !g_queue.empty(); });
+                if (g_queue.empty() && g_stopping) return 0;
+                batch.swap(g_queue);
+            }
+            if (g_file)
+            {
+                for (const std::string& l : batch)
+                {
+                    fputs(l.c_str(), g_file);
+                    fputc('\n', g_file);
+                }
+                fflush(g_file);
+            }
+            batch.clear();
+        }
+    }
 
     static std::string Stamp()
     {
@@ -62,7 +102,27 @@ namespace fp::Log
     // archive is a barrier to that.
     static constexpr int kArchives = 24;   // plus the live one. Sessions are cheap; losing one is not.
 
-    static void Rotate(const wchar_t* base)
+    // A rename loses to a sharing violation while another process still has
+    // the file open, and the game can be restarted faster than the last one
+    // lets go. Windows reports that as ERROR_SHARING_VIOLATION or
+    // ERROR_ACCESS_DENIED; a missing source is not a failure, it is the first
+    // run.
+    static bool MoveOver(const wchar_t* from, const wchar_t* to)
+    {
+        for (int i = 0; i < 10; ++i)
+        {
+            if (MoveFileExW(from, to, MOVEFILE_REPLACE_EXISTING)) return true;
+            const DWORD e = GetLastError();
+            if (e == ERROR_FILE_NOT_FOUND || e == ERROR_PATH_NOT_FOUND) return true;
+            Sleep(100);
+        }
+        return false;
+    }
+
+    // True when the live log is out of the way and a fresh one may be opened.
+    // False means the previous session's log is still sitting at the live
+    // path, and the caller must append to it rather than truncate it.
+    static bool Rotate(const wchar_t* base)
     {
         wchar_t from[96], to[96], live[96];
         _snwprintf_s(live, _countof(live), _TRUNCATE, L"%s.log", base);
@@ -74,19 +134,27 @@ namespace fp::Log
         {
             _snwprintf_s(from, _countof(from), _TRUNCATE, L"%s.%02d.log", base, i);
             _snwprintf_s(to,   _countof(to),   _TRUNCATE, L"%s.%02d.log", base, i + 1);
-            MoveFileExW(Paths::File(from).c_str(), Paths::File(to).c_str(), MOVEFILE_REPLACE_EXISTING);
+            MoveOver(Paths::File(from).c_str(), Paths::File(to).c_str());
         }
         _snwprintf_s(to, _countof(to), _TRUNCATE, L"%s.01.log", base);
-        MoveFileExW(Paths::File(live).c_str(), Paths::File(to).c_str(), MOVEFILE_REPLACE_EXISTING);
+        return MoveOver(Paths::File(live).c_str(), Paths::File(to).c_str());
     }
 
-    // Caller holds g_mu.
-    static void Open(const wchar_t* base)
+    // Caller holds g_mu. `fresh` false appends, because the live file still
+    // holds the previous session and opening it "w" would empty it. That is
+    // not hypothetical: two restarts three minutes apart on 20 September 2026
+    // cost a 1.9 GB log in the plugin next door, and this one had lost its
+    // own .02 the same way.
+    static void Open(const wchar_t* base, bool fresh = true)
     {
         wchar_t live[96];
         _snwprintf_s(live, _countof(live), _TRUNCATE, L"%s.log", base);
-        g_file = _wfopen(Paths::File(live).c_str(), L"w");
+        g_file = _wfopen(Paths::File(live).c_str(), fresh ? L"w" : L"a");
         if (!g_file) return;
+        if (!fresh)
+            fputs("[log  ] the previous session's log could not be renamed, most likely because that "
+                  "process still had it open. This session is appended to it rather than writing over it.\n",
+                  g_file);
         for (const auto& l : g_pending)
         {
             fputs(l.c_str(), g_file);
@@ -101,8 +169,8 @@ namespace fp::Log
         std::lock_guard<std::mutex> lk(g_mu);
         if (g_claimed) return;
         g_claimed = true;
-        Rotate(base);
-        Open(base);
+        const bool fresh = Rotate(base);
+        Open(base, fresh);
     }
 
     void ClaimSingle(const wchar_t* base)
@@ -153,10 +221,53 @@ namespace fp::Log
         return g_claimed;
     }
 
-    void Shutdown()
+    void Shutdown(bool processExiting)
+    {
+        if (processExiting)
+        {
+            // Windows has already ended every other thread, the writer included,
+            // and one that died holding g_mu or the file's own lock would hang
+            // the game's exit on either. No thread is left to race with, so the
+            // queue goes out without taking any lock, and the file is flushed
+            // but not closed: fclose takes the file's lock as well.
+            if (g_file)
+            {
+                for (const std::string& l : g_queue) { _fwrite_nolock(l.data(), 1, l.size(), g_file); _fputc_nolock('\n', g_file); }
+                _fflush_nolock(g_file);
+            }
+            return;
+        }
+        HANDLE writer = nullptr;
+        {
+            std::lock_guard<std::mutex> lk(g_mu);
+            g_stopping = true;
+            writer = g_writer;
+        }
+        g_wake.notify_all();
+        if (writer)
+        {
+            // The queue is drained by the writer before it returns, so the
+            // last lines of a session reach the file.
+            WaitForSingleObject(writer, 2000);
+            CloseHandle(writer);
+        }
+        std::lock_guard<std::mutex> lk(g_mu);
+        g_writer = nullptr;
+        if (g_file)
+        {
+            for (const std::string& l : g_queue) { fputs(l.c_str(), g_file); fputc('\n', g_file); }
+            g_queue.clear();
+            fflush(g_file);
+            fclose(g_file);
+            g_file = nullptr;
+        }
+    }
+
+    void StartWriter()
     {
         std::lock_guard<std::mutex> lk(g_mu);
-        if (g_file) { fclose(g_file); g_file = nullptr; }
+        if (g_writer || !g_file) return;
+        g_writer = CreateThread(nullptr, 0, WriterMain, nullptr, 0, nullptr);
     }
 
     void Snapshot(std::vector<std::string>& out, int maxLines)

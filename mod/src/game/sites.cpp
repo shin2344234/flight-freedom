@@ -17,7 +17,7 @@
 
 namespace
 {
-    constexpr int kMaxSites   = 32;
+    constexpr int kMaxSites   = 64;
     constexpr int kMaxPatches = 16;
     constexpr int kMaxWatches = 16;
     constexpr int kRetDepth   = 64;
@@ -30,14 +30,67 @@ namespace
         uint8_t*  enter = nullptr;    // thunk patched in at the entry
         uint8_t*  leave = nullptr;    // thunk the return address is swapped for
         bool      hasRet = false, hasSkip = false, leaveHook = true;
+        // ifarg=N, ifval=0xV, ifderef=1: ret=, skip= and a1..a4 apply only to
+        // calls where argument N (or, with ifderef, the qword it points at)
+        // equals V. One action id out of every action the game starts.
+        unsigned  ifArg = 0;
+        bool      ifDeref = false;
+        uint64_t  ifVal = 0;
+        // ifptr=0xOFF: follow the pointer at that offset inside the argument
+        // and compare the 32-bit value there. A condition node keeps its
+        // parameters behind a pointer, so this is what it takes to match one
+        // node out of a class rather than the class. CheckBuffTag's node holds
+        // a pointer at +0x10 to an array of tag keys, and the key is data and
+        // the same in every session, unlike the node's own address.
+        unsigned  ifPtrOff = 0;
+        bool      hasIfPtr = false;
+        // mid=1: hook an address that is inside a function rather than at its
+        // start. Refused otherwise, because that is what a stale address looks
+        // like after a game update, and hooking it crashes the game.
+        bool      midOk = false;
         uint64_t  retVal = 0, skipVal = 0;
         LONG      after = 0;          // ret/skip apply only once calls exceed this
         unsigned  outArg = 0;         // 1..6: argument holding a pointer whose target is logged at return
         unsigned  retObj = 0;         // bytes of the object rax points at to dump at return (first `dump` calls)
         bool      hasArg[4] = {};     // a1..a4: replace rcx/rdx/r8/r9 on entry, gated by `after`
         uint64_t  argVal[4] = {};
-        unsigned  args = 6, objBytes = 0x100;
-        volatile LONG dumpLeft = 2, linesLeft = 100, stackLeft = 3;
+        unsigned  args = 6, objBytes = 0x40;
+        // dumparg=N: dump only that argument. A site called hundreds of times
+        // a second passes the same actor component every time, and dumping it
+        // on every call is the same bytes over and over; the one argument that
+        // changes is the one worth the lines. obj=0 turns dumping off.
+        unsigned  dumpArg = 0;
+        // deref=0xOFF: after dumping an argument, follow the pointer at that
+        // offset inside it and dump what it points at as well. A condition
+        // node keeps its parameters behind one pointer, so a single level
+        // shows that a parameter exists and never what it says.
+        unsigned  derefOff = 0;
+        bool      hasDeref = false;
+        // tally=N: instead of a line per call, resolve argument N to the RTTI
+        // name of the object it points at and count by name. The AI condition
+        // dispatcher runs 330 times a second across every actor in the world,
+        // which no line budget survives, but it only ever passes a few dozen
+        // distinct node classes. A class that first appears at the moment the
+        // behaviour changes is the whole point, and it is one line.
+        unsigned  tallyArg = 0;
+        // tallyby=M: also key on argument M's raw pointer. The AI dispatcher
+        // passes the actor component in r8, and the dragon's chart shares every
+        // node class with every NPC in the world, so counting by class alone
+        // never separates it. Keyed by (class, actor) it does.
+        unsigned  tallyBy = 0;
+        // Negative means no limit, which is the default: sites are only read
+        // with Probe=1, and a research run captures everything. A number caps
+        // it for the rare case where one site is known to be noise.
+        //
+        // The unwind is the exception. A site's caller chain is the same on
+        // every call, so the second one and the ten thousandth after it are
+        // repetition, and each costs 24 RtlVirtualUnwind calls on a game
+        // thread. Run 8 hooked the AI tick chain with the unwind unlimited and
+        // the game fell to a few frames a second: 104,000 lines a second, 22%
+        // of them unwind frames and 54% the same object dumped again. One
+        // unwind per site says everything the chain has to say; stack=N asks
+        // for more.
+        volatile LONG dumpLeft = -1, linesLeft = -1, stackLeft = 1;
         volatile LONG calls = 0, returns = 0, overridden = 0;
         volatile LONG64 lastRet = 0;
         LONG reportedCalls = 0; // mod thread only
@@ -78,7 +131,7 @@ namespace
     }
 
     // Per-thread stack of return addresses the leave thunks replaced.
-    struct RetEntry { int site; uint64_t ret; uint64_t* slot; LONG call; uint64_t outPtr; };
+    struct RetEntry { int site; uint64_t ret; uint64_t* slot; LONG call; uint64_t outPtr; bool match; };
     struct ThreadStack { RetEntry e[kRetDepth]; int depth; };
     DWORD g_tls = TLS_OUT_OF_INDEXES;
     ThreadStack* Stack()
@@ -212,6 +265,74 @@ namespace
         }
     }
 
+
+    // One row per (class, key). Keyed on the RTTI name pointer, which is a
+    // fixed address inside the image for every class, so the lookup is a
+    // hash probe and not a string compare. The table is a power of two so
+    // the probe wraps with a mask; 4,096 rows overflowed on the first run
+    // keyed by actor (616,056 calls dropped), which is why it is 65,536 and
+    // on the heap, allocated only for sites that tally.
+    constexpr int kTallyMax = 65536;
+    struct Tally
+    {
+        const char* name = nullptr; // RTTI name in the image, or null
+        uint64_t by = 0;
+        volatile LONG state = 0;    // 0 empty, 1 being claimed, 2 ready
+        volatile LONG count = 0;
+        LONG reported = 0;          // mod thread only
+    };
+    struct TallyTable
+    {
+        Tally* t = nullptr;
+        volatile LONG used = 0;
+        volatile LONG overflow = 0;
+    };
+    TallyTable g_tally[kMaxSites];
+
+    // Game threads. A slot lost in a race is left to its winner and the probe
+    // moves on, so two threads first seeing the same key on the same tick can
+    // make two rows; that costs a line, not a crash.
+    void Count(int site, uintptr_t obj, uint64_t by)
+    {
+        TallyTable& tt = g_tally[site];
+        if (!tt.t) return;
+        const char* rtti = fp::mem::RttiShort(obj);
+        uint64_t h = reinterpret_cast<uintptr_t>(rtti) * 0x9E3779B97F4A7C15ull;
+        h ^= (by + 0x7F4A7C15ull) * 0xC2B2AE3D27D4EB4Full;
+        h ^= h >> 29;
+        for (int probe = 0; probe < kTallyMax; ++probe)
+        {
+            Tally& e = tt.t[(h + probe) & (kTallyMax - 1)];
+            const LONG st = InterlockedCompareExchange(&e.state, 0, 0);
+            if (st == 2)
+            {
+                if (e.name == rtti && e.by == by) { InterlockedIncrement(&e.count); return; }
+                continue;
+            }
+            if (st == 0 && InterlockedCompareExchange(&e.state, 1, 0) == 0)
+            {
+                e.name = rtti;
+                e.by = by;
+                InterlockedIncrement(&e.count);
+                InterlockedExchange(&e.state, 2);
+                InterlockedIncrement(&tt.used);
+                return;
+            }
+        }
+        InterlockedIncrement(&tt.overflow);
+    }
+
+    // A per-site budget: negative is unlimited (the default), zero is spent,
+    // positive counts down. True when this call may spend one.
+    bool Spend(volatile LONG* budget)
+    {
+        const LONG b = InterlockedCompareExchange(budget, 0, 0);
+        if (b < 0) return true;
+        if (b == 0) return false;
+        if (InterlockedDecrement(budget) < 0) { InterlockedIncrement(budget); return false; }
+        return true;
+    }
+
     // --- the two callbacks the thunks reach ---------------------------------
 
     // frame: [0] rcx [1] rdx [2] r8 [3] r9 [4] rax(skip value out) [5] r10 [6] r11
@@ -225,8 +346,37 @@ namespace
         const LONG n = InterlockedIncrement(&s.calls);
         const uintptr_t caller = static_cast<uintptr_t>(retSlot[0]);
 
-        const bool skipNow = s.hasSkip && n > s.after;
-        if (skipNow) frame[4] = s.skipVal;
+        bool match = true;
+        if (s.ifArg >= 1 && s.ifArg <= 4 && s.hasIfPtr)
+        {
+            const uintptr_t p = static_cast<uintptr_t>(frame[s.ifArg - 1]);
+            uintptr_t inner = 0;
+            uint32_t got = 0;
+            match = fp::mem::Plausible(p) && fp::mem::ReadPtr(p + s.ifPtrOff, &inner) &&
+                    fp::mem::Plausible(inner) && fp::mem::Read32(inner, &got) &&
+                    got == static_cast<uint32_t>(s.ifVal);
+        }
+        else if (s.ifArg >= 1 && s.ifArg <= 4)
+        {
+            const uint64_t v = frame[s.ifArg - 1];
+            if (s.ifDeref)
+            {
+                uint64_t d = 0;
+                match = fp::mem::Plausible(static_cast<uintptr_t>(v)) &&
+                        fp::mem::Read64(static_cast<uintptr_t>(v), &d) && d == s.ifVal;
+            }
+            else match = v == s.ifVal;
+        }
+        const bool skipNow = s.hasSkip && n > s.after && match;
+        if (skipNow)
+        {
+            frame[4] = s.skipVal;
+            if (s.ifArg)
+                LOG("[site] %s call %ld: arg%u %s 0x%llX, skipped with 0x%llX", s.name, n, s.ifArg,
+                    s.hasIfPtr ? "reaches" : (s.ifDeref ? "points at" : "is"),
+                    static_cast<unsigned long long>(s.ifVal),
+                    static_cast<unsigned long long>(s.skipVal));
+        }
         else if (s.leaveHook)
         {
             ThreadStack* ts = Stack();
@@ -234,7 +384,7 @@ namespace
             {
                 RetEntry& e = ts->e[ts->depth++];
                 e.site = i; e.ret = retSlot[0]; e.slot = retSlot; e.call = n;
-                e.outPtr = 0;
+                e.outPtr = 0; e.match = match;
                 if (s.outArg >= 1 && s.outArg <= 4) e.outPtr = frame[s.outArg - 1];
                 else if (s.outArg == 5 || s.outArg == 6)
                 {
@@ -245,9 +395,16 @@ namespace
             }
         }
 
-        if (InterlockedCompareExchange(&s.linesLeft, 0, 0) > 0)
+        if (s.tallyArg)
         {
-            if (InterlockedDecrement(&s.linesLeft) == 0)
+            Count(i, static_cast<uintptr_t>(frame[s.tallyArg - 1]), s.tallyBy ? frame[s.tallyBy - 1] : 0);
+            return skipNow ? 1 : 0;
+        }
+
+        const LONG linesLeft = InterlockedCompareExchange(&s.linesLeft, 0, 0);
+        if (linesLeft != 0)
+        {
+            if (linesLeft > 0 && InterlockedDecrement(&s.linesLeft) == 0)
                 LOG("[site] %s: per-call lines used up after %ld calls; the summary keeps counting", s.name, n);
             else
             {
@@ -297,17 +454,18 @@ namespace
         // Argument replacement, after the natural values are on record.
         for (int k = 0; k < 4; ++k)
         {
-            if (!s.hasArg[k] || n <= s.after) continue;
-            if (InterlockedCompareExchange(&s.linesLeft, 0, 0) > 0)
+            if (!s.hasArg[k] || n <= s.after || !match) continue;
+            if (Spend(&s.linesLeft))
                 LOG("[site]   %s argument %d replaced: 0x%llX -> 0x%llX", s.name, k + 1,
                     static_cast<unsigned long long>(frame[k]), static_cast<unsigned long long>(s.argVal[k]));
             frame[k] = s.argVal[k];
         }
-        if (InterlockedCompareExchange(&s.dumpLeft, 0, 0) > 0)
+        if (s.objBytes && Spend(&s.dumpLeft))
         {
-            InterlockedDecrement(&s.dumpLeft);
-            const char* what[3] = { "rcx", "rdx", "r8" };
-            for (int k = 0; k < 3 && static_cast<unsigned>(k) < s.args; ++k)
+            const char* what[4] = { "rcx", "rdx", "r8", "r9" };
+            const int first = s.dumpArg ? static_cast<int>(s.dumpArg) - 1 : 0;
+            const int last  = s.dumpArg ? static_cast<int>(s.dumpArg) : 4;
+            for (int k = first; k < last && static_cast<unsigned>(k) < s.args; ++k)
             {
                 const uintptr_t p = static_cast<uintptr_t>(frame[k]);
                 if (fp::mem::Plausible(p) && fp::mem::Readable(p, s.objBytes))
@@ -315,12 +473,18 @@ namespace
                     char tag[64];
                     snprintf(tag, sizeof tag, "%s %s", s.name, what[k]);
                     fp::conditions::DumpObject(tag, p, s.objBytes);
+                    uintptr_t inner = 0;
+                    if (s.hasDeref && fp::mem::ReadPtr(p + s.derefOff, &inner) &&
+                        fp::mem::Plausible(inner) && fp::mem::Readable(inner, s.objBytes))
+                    {
+                        snprintf(tag, sizeof tag, "%s %s+0x%X", s.name, what[k], s.derefOff);
+                        fp::conditions::DumpObject(tag, inner, s.objBytes);
+                    }
                 }
             }
         }
-        if (InterlockedCompareExchange(&s.stackLeft, 0, 0) > 0)
+        if (Spend(&s.stackLeft))
         {
-            InterlockedDecrement(&s.stackLeft);
             WalkCaller(s.name, retSlot, caller, 24);
         }
         return skipNow ? 1 : 0;
@@ -335,6 +499,7 @@ namespace
         uint64_t ret = 0;
         LONG call = 0;
         uint64_t outPtr = 0;
+        bool match = true;
         if (ts)
         {
             // Normally the top entry is ours. If an exception unwound past a
@@ -349,12 +514,13 @@ namespace
                 ret = ts->e[k].ret;
                 call = ts->e[k].call;
                 outPtr = ts->e[k].outPtr;
+                match = ts->e[k].match;
                 ts->depth = k;
             }
         }
         InterlockedIncrement(&s.returns);
         InterlockedExchange64(&s.lastRet, static_cast<LONG64>(*raxSlot));
-        const bool quiet = InterlockedCompareExchange(&s.linesLeft, 0, 0) <= 0;
+        const bool quiet = InterlockedCompareExchange(&s.linesLeft, 0, 0) == 0;
         if (!quiet)
         {
             char a[96];
@@ -375,7 +541,7 @@ namespace
                 LOG("[site]   %s out arg%u -> u32 %lu (0x%lX); qwords %s | %s | %s | %s", s.name, s.outArg,
                     static_cast<unsigned long>(d), static_cast<unsigned long>(d), q[0], q[1], q[2], q[3]);
             }
-            if (s.retObj && InterlockedCompareExchange(&s.dumpLeft, 0, 0) > 0 &&
+            if (s.retObj && InterlockedCompareExchange(&s.dumpLeft, 0, 0) != 0 &&
                 fp::mem::Plausible(static_cast<uintptr_t>(*raxSlot)) &&
                 fp::mem::Readable(static_cast<uintptr_t>(*raxSlot), s.retObj))
             {
@@ -385,7 +551,7 @@ namespace
                 fp::conditions::DumpObject(tag, static_cast<uintptr_t>(*raxSlot), s.retObj);
             }
         }
-        if (s.hasRet && call > s.after)
+        if (s.hasRet && call > s.after && match)
         {
             InterlockedIncrement(&s.overridden);
             if (!quiet)
@@ -570,13 +736,25 @@ namespace
                     else if (!_stricmp(tok, "stack")) out.stackLeft = static_cast<LONG>(v);
                     else if (!_stricmp(tok, "leave")) out.leaveHook = v != 0;
                     else if (!_stricmp(tok, "args"))  out.args = static_cast<unsigned>(v > 6 ? 6 : v);
+                    else if (!_stricmp(tok, "tallyby")) out.tallyBy = static_cast<unsigned>(v > 4 ? 4 : v);
+                    else if (!_stricmp(tok, "tally")) out.tallyArg = static_cast<unsigned>(v > 4 ? 4 : v);
                     else if (!_stricmp(tok, "obj"))   out.objBytes = static_cast<unsigned>(v > 0x400 ? 0x400 : v);
+                    else if (!_stricmp(tok, "ifarg")) out.ifArg = static_cast<unsigned>(v > 4 ? 4 : v);
+                    else if (!_stricmp(tok, "ifval")) out.ifVal = v;
+                    else if (!_stricmp(tok, "ifderef")) out.ifDeref = v != 0;
+                    else if (!_stricmp(tok, "dumparg")) out.dumpArg = static_cast<unsigned>(v > 4 ? 4 : v);
+                    else if (!_stricmp(tok, "deref")) { out.hasDeref = true; out.derefOff = static_cast<unsigned>(v > 0x400 ? 0x400 : v); }
+                    else if (!_stricmp(tok, "ifptr")) { out.hasIfPtr = true; out.ifPtrOff = static_cast<unsigned>(v > 0x400 ? 0x400 : v); }
+                    else if (!_stricmp(tok, "mid"))   out.midOk = v != 0;
                     else LOG("[site] %s: unknown option \"%s\" ignored", name, tok);
                 }
             }
             tok = strtok_s(nullptr, ",", &ctx);
         }
         if (!rva) return false;
+        // Tallying only reads an argument on entry, so the return hook is pure
+        // cost on a site that runs hundreds of times a second.
+        if (out.tallyArg) out.leaveHook = false;
         out.target = fp::mem::Game().base + rva;
         return true;
     }
@@ -681,6 +859,32 @@ namespace fp::sites
         static wchar_t buf[32768];
         char name[64], spec[512];
 
+        // Every address in [patch], [watch] and [sites] is an offset into one
+        // particular build of the exe. A game update moves the code under them
+        // and the addresses do not follow: on 21 September 2026 2.03.01 moved
+        // everything, and the 2.03.00 [sites] block hooked the middle of
+        // unrelated functions and crashed the game four seconds in, three
+        // launches running. So [sites] carries the image size it was written
+        // against, the same number the log prints on its second line, and a
+        // different exe gets nothing installed from any of the three.
+        {
+            wchar_t v[32] = L"";
+            const std::wstring ini = fp::Paths::File(FP_INI);
+            GetPrivateProfileStringW(L"sites", L"image", L"", v, 32, ini.c_str());
+            const unsigned long long want = wcstoull(v, nullptr, 0);
+            const unsigned long long have = static_cast<unsigned long long>(mem::Game().size);
+            if (want && want != have)
+            {
+                LOG_ERR("[probe] [sites] says image = %llu, and this exe's image is %llu bytes. The game has been "
+                        "updated since these addresses were written, so nothing from [patch], [watch] or [sites] "
+                        "is installed. Resolve them again for this build and set image = %llu.", want, have, have);
+                return false;
+            }
+            if (!want)
+                LOG("[probe] [sites] has no image = line, so its addresses are not checked against this build "
+                    "(image %llu bytes). Every site is still refused if it lands inside a function.", have);
+        }
+
         // [patch]
         if (ReadSection(L"patch", buf, 32768) > 0)
         {
@@ -757,15 +961,32 @@ namespace fp::sites
                 Narrow(p, name, sizeof name); Narrow(eq + 1, spec, sizeof spec);
                 name[(eq - p) < 63 ? (eq - p) : 63] = 0;
                 Trim(name); Trim(spec);
+                if (!_stricmp(name, "image")) continue;
                 Site& s = g_sites[g_n];
                 s = Site();
                 if (!ParseSite(name, spec, s)) { LOG_ERR("[site] %s: no RVA in \"%s\"", name, spec); continue; }
                 if (g_shadowStack) s.leaveHook = false;
+                if (s.tallyArg && !g_tally[g_n].t) g_tally[g_n].t = new Tally[kTallyMax]();
                 if (!mem::Executable(s.target, 16))
                 {
                     LOG_ERR("[site] %s: +0x%llX is not executable memory, not hooked", s.name,
                             static_cast<unsigned long long>(mem::Rva(s.target)));
                     continue;
+                }
+                if (!s.midOk)
+                {
+                    DWORD64 imgBase = 0;
+                    const RUNTIME_FUNCTION* fe = RtlLookupFunctionEntry(static_cast<DWORD64>(s.target), &imgBase, nullptr);
+                    if (fe && imgBase + fe->BeginAddress != static_cast<DWORD64>(s.target))
+                    {
+                        LOG_ERR("[site] %s: +0x%llX is 0x%llX bytes into the function at +0x%llX, not its start. "
+                                "That is what a stale address looks like after a game update, so it is not hooked "
+                                "(mid=1 on the line hooks it anyway).", s.name,
+                                static_cast<unsigned long long>(mem::Rva(s.target)),
+                                static_cast<unsigned long long>(s.target - (imgBase + fe->BeginAddress)),
+                                static_cast<unsigned long long>(mem::Rva(static_cast<uintptr_t>(imgBase + fe->BeginAddress))));
+                        continue;
+                    }
                 }
                 // The entry thunk needs the trampoline address, and farhook
                 // needs the detour address, so build the leave thunk first,
@@ -849,6 +1070,29 @@ namespace fp::sites
                 static_cast<unsigned long long>(InterlockedCompareExchange64(&s.lastRet, 0, 0)),
                 s.hasRet ? ", replaced " : ", overrides ", ov);
             s.reportedCalls = calls;
+
+            if (!s.tallyArg) continue;
+            TallyTable& tt = g_tally[i];
+            if (!tt.t) continue;
+            for (int k = 0; k < kTallyMax; ++k)
+            {
+                Tally& t = tt.t[k];
+                if (InterlockedCompareExchange(&t.state, 0, 0) != 2) continue;
+                const LONG c = InterlockedCompareExchange(&t.count, 0, 0);
+                if (c == t.reported) continue;
+                const char* name = t.name ? t.name : "(no rtti)";
+                if (t.by)
+                    LOG("[tally] %-12s %-56s %llX %6ld (+%ld)%s", s.name, name,
+                        static_cast<unsigned long long>(t.by), c, c - t.reported, t.reported == 0 ? "   FIRST SEEN" : "");
+                else
+                    LOG("[tally] %-12s %-56s %6ld (+%ld)%s", s.name, name, c, c - t.reported,
+                        t.reported == 0 ? "   FIRST SEEN" : "");
+                t.reported = c;
+            }
+            const LONG over = InterlockedCompareExchange(&tt.overflow, 0, 0);
+            if (over)
+                LOG("[tally] %s: table of %d rows full, %ld calls not counted (%ld rows used)",
+                    s.name, kTallyMax, over, InterlockedCompareExchange(&tt.used, 0, 0));
         }
     }
 }

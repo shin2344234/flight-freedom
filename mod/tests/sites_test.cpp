@@ -15,6 +15,7 @@
 #include "core/paths.h"
 #include "game/mem.h"
 #include "game/sites.h"
+#include "game/tables.h"
 #include "version.h"
 
 // Optimisation off so the prologues spill their arguments: five-byte stores
@@ -82,6 +83,40 @@ static uint8_t* MakeRelocated()
 }
 static volatile uint32_t g_watched = 0x11223344;
 static uint8_t* g_builtinTarget = nullptr;
+
+// A fake table loader planted in this executable's own image, so the walk from
+// a failure message back to the read that names the field can be run without
+// the game. Both buffers are ordinary statics, which puts them in the module
+// the scanner searches. The field name is never written as one literal: the
+// scan looks for it by bytes, and a second copy anywhere in the image would
+// make it ambiguous on purpose.
+static char g_fakeMsgOk[96];
+static char g_fakeMsgTwo[96];
+static uint8_t g_fakeLoader[128];
+
+static void BuildFieldName(char* out, size_t n)
+{
+    strcpy_s(out, n, "_callMercenary");
+    strcat_s(out, n, "TestField");
+}
+
+// lea rdx,[rsi+off]; mov r8d,8; mov rcx,rdi; call [rax+8]; test al,al; jne
+static size_t EmitRead(uint8_t* p, uint8_t off)
+{
+    const uint8_t bytes[] = { 0x48, 0x8D, 0x56, off, 0x41, 0xB8, 0x08, 0x00, 0x00, 0x00,
+                              0x48, 0x8B, 0xCF, 0xFF, 0x50, 0x08, 0x84, 0xC0, 0x75, 0x09 };
+    memcpy(p, bytes, sizeof bytes);
+    return sizeof bytes;
+}
+
+// lea rax,[rip+msg]
+static size_t EmitMsgLea(uint8_t* p, const char* msg)
+{
+    p[0] = 0x48; p[1] = 0x8D; p[2] = 0x05;
+    const int32_t rel = static_cast<int32_t>(reinterpret_cast<intptr_t>(msg) - reinterpret_cast<intptr_t>(p + 7));
+    memcpy(p + 3, &rel, 4);
+    return 7;
+}
 
 static int g_fail = 0;
 static void Check(bool ok, const char* what)
@@ -237,6 +272,89 @@ int main()
         Check(fp::Log::RemovePerProcessLogs(L"FFTest") == 0, "a second pass finds nothing");
 
         for (const wchar_t* n : spared) DeleteFileW(fp::Paths::File(n).c_str());
+    }
+
+    // LoaderFieldOffset reads the offset out of the loader's code instead of
+    // out of the table's values, which is what makes it survive a mod that
+    // edits the table's data file. The walk is the part worth testing: the
+    // message is found first and the read is behind it, with whatever the
+    // compiler left in the gap.
+    {
+        char field[64];
+        BuildFieldName(field, sizeof field);
+        snprintf(g_fakeMsgOk, sizeof g_fakeMsgOk, "TestInfo of %s could not be read.", field);
+        snprintf(g_fakeMsgTwo, sizeof g_fakeMsgTwo, "TestInfo of %sB could not be read.", field);
+
+        uint8_t* p = g_fakeLoader;
+        p += EmitRead(p, 0x78);
+        p += EmitMsgLea(p, g_fakeMsgOk);
+        Check(fp::tables::LoaderFieldOffset("TestInfo", field) == 0x78, "the read in front of the message names the offset");
+
+        // The nearest read is the field before this one, with its own call to
+        // the reader still in the gap. Two calls, so the offset is not this
+        // field's and nothing is returned.
+        uint8_t* q = g_fakeLoader + 48;
+        size_t n = EmitRead(q, 0x70);
+        memset(q + n, 0x90, 10);
+        const uint8_t tail[] = { 0xFF, 0x50, 0x08, 0x84, 0xC0, 0x75, 0x09 };
+        memcpy(q + n + 10, tail, sizeof tail);
+        EmitMsgLea(q + n + 10 + sizeof tail, g_fakeMsgTwo);
+        char fieldB[64];
+        snprintf(fieldB, sizeof fieldB, "%sB", field);
+        Check(fp::tables::LoaderFieldOffset("TestInfo", fieldB) == -1, "a read behind a second call to the reader is refused");
+        Check(CountLines("calls to the reader") >= 1, "the refusal said why");
+
+        Check(fp::tables::LoaderFieldOffset("TestInfo", "_noSuchFieldAnywhere") == -1, "a field with no message is refused");
+    }
+
+    // PickSpawnDuration decides where Blackstar's spawn duration lives from a
+    // copy of two records, so it can be asked here about records that no game
+    // would produce. The cases that matter are the ones another mod makes: the
+    // summon cooldowns are somebody else's field and 1.1.5 required them, so
+    // zeroing them has to leave the answer alone.
+    {
+        struct Row
+        {
+            uint8_t b[0x100] = {};
+            void Put(unsigned off, int64_t v) { memcpy(b + off, &v, sizeof v); }
+        };
+        const unsigned cool = 0x70, dur = 0x78, decoy = 0x40;
+        auto pick = [&](const Row& s, const Row& w) {
+            return fp::tables::PickSpawnDuration(s.b, w.b, sizeof s.b);
+        };
+
+        {   // the game as it ships
+            Row s, w;
+            s.Put(cool, 3600); s.Put(dur, 600);
+            w.Put(cool, 300);  w.Put(dur, 0);
+            const auto p = pick(s, w);
+            Check(p.off == (int)dur && p.candidates == 1 && !p.already, "stock records give the loader's offset");
+
+            Row s2 = s, w2 = w;                       // a cooldown mod got there first
+            s2.Put(cool, 0); w2.Put(cool, 0);
+            Check(pick(s2, w2).off == (int)dur, "zeroed cooldowns do not take the duration away");
+        }
+        {   // a second offset carrying the same pair, settled by the cooldowns
+            Row s, w;
+            s.Put(cool, 3600); s.Put(dur, 600); s.Put(decoy, 600);
+            w.Put(cool, 300);  w.Put(dur, 0);
+            const auto p = pick(s, w);
+            Check(p.candidates == 2 && p.off == (int)dur, "the cooldowns break a tie between two offsets");
+
+            s.Put(cool, 0); w.Put(cool, 0);           // and with those gone, the loader's offset does
+            Check(pick(s, w).off == (int)dur, "the loader's offset breaks the tie the cooldowns cannot");
+
+            s.Put(dur, 0); s.Put(0x88, 600); w.Put(0x88, 0);
+            Check(pick(s, w).off == -1, "two offsets and no way to choose writes nothing");
+        }
+        {   // already at 0, and nothing to go on at all
+            Row s, w;
+            s.Put(cool, 3600); w.Put(cool, 300);
+            const auto p = pick(s, w);
+            Check(p.off == (int)dur && p.already, "a duration already at 0 is recognised, not rewritten");
+            Row z1, z2;
+            Check(pick(z1, z2).off == -1, "empty records write nothing");
+        }
     }
 
     std::vector<std::string> lines;

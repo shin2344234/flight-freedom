@@ -16,6 +16,7 @@
 #include "game/signatures.h"
 #include "game/sites.h"
 #include "game/tables.h"
+#include "game/takeoff.h"
 #include "version.h"
 
 namespace
@@ -68,7 +69,12 @@ namespace
         bool  abyssSummon;    // validator never refuses a summon for the region
         bool  platformSummon; // validator never refuses a summon for what is underfoot
         bool  townFlight;     // the town dismount condition can never be true
-        bool  blackstarStays; // Blackstar gets the Wyvern's spawn duration of 0
+        // Refuse the takeoff action a landed Blackstar's chart starts. Up to
+        // 1.1.5 this wrote the spawn duration in characterinfo, which was
+        // shown to do nothing; any number other than 0 now just means on.
+        float blackstarStays;
+        // Research only, Probe=1. 0 leaves the vehicleinfo 30.0 alone.
+        float groundCheck;
         bool  oldLanded;      // an ini still setting the retired LandedTimeout
         float aboveCeiling;   // research only: height-based region override
         bool  summonAnywhere; // research only
@@ -83,7 +89,8 @@ namespace
         s.abyssSummon    = ReadSetting(L"AbyssSummon", L"1") != 0.0f;
         s.platformSummon = ReadSetting(L"PlatformSummon", L"0") != 0.0f;
         s.townFlight     = ReadSetting(L"TownFlight", L"1") != 0.0f;
-        s.blackstarStays = ReadSetting(L"BlackstarStays", L"1") != 0.0f;
+        s.blackstarStays = ReadSetting(L"BlackstarStays", L"1");
+        s.groundCheck    = ReadSetting(L"GroundCheck", L"0");
         s.oldLanded      = ReadSetting(L"LandedTimeout", L"0") != 0.0f;
         s.aboveCeiling   = ReadSetting(L"AboveCeiling", L"0");
         s.summonAnywhere = ReadSetting(L"SummonAnywhere", L"0") != 0.0f;
@@ -117,11 +124,11 @@ namespace
         WriteDefaultIni();
         const Settings s = ReadSettings();
 
-        LOG("[mod] %s %s for Crimson Desert 2.03.00 (exe 1.0.0.2944). Settings: Ceiling=%s NoFlyZones=%d "
+        LOG("[mod] %s %s for Crimson Desert 2.03.01 (exe 1.0.0.2949). Settings: Ceiling=%s NoFlyZones=%d "
             "AbyssSummon=%d PlatformSummon=%d TownFlight=%d BlackstarStays=%d Probe=%d", FP_NAME, FP_VERSION,
             s.ceiling == 0.0f ? "0 (game's own)" : (s.ceiling < 0.0f ? "-1 (none)" : "custom"),
             s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.platformSummon ? 1 : 0, s.townFlight ? 1 : 0,
-            s.blackstarStays ? 1 : 0, s.probe ? 1 : 0);
+            static_cast<int>(s.blackstarStays), s.probe ? 1 : 0);
         if (s.oldLanded)
             LOG("[mod] LandedTimeout is set in the ini and is ignored. It never reached a timer: it wrote Blackstar's "
                 "ground-check distance. BlackstarStays replaces it and is on unless set to 0.");
@@ -159,6 +166,16 @@ namespace
             LOG("[patch] TownFlight is 0: flying low over a town off the road will dismount you, which is "
                 "the game's own behaviour.");
 
+        if (s.blackstarStays != 0.0f)
+        {
+            if (s.blackstarStays != 1.0f)
+                LOG("[blackstar] BlackstarStays is %g. Up to 1.1.5 a number here was a spawn duration, which turned "
+                    "out to do nothing; any value other than 0 now means on.", s.blackstarStays);
+            fp::takeoff::Install();
+        }
+        else
+            LOG("[blackstar] BlackstarStays is 0, so Blackstar lifts off again about 30 seconds after he lands.");
+
         // Research mode: every condition hook, the ini's own hooks, the
         // height-based override and the summon-gate override. None of it is
         // needed for the mod to work; it is what found the two patches.
@@ -186,11 +203,8 @@ namespace
                 LOG("[mod] AboveCeiling and SummonAnywhere only apply with Probe=1 and are ignored.");
         }
 
-        int waited = 0, tick = 0, starTries = 0;
-        bool reported = false, starDone = !s.blackstarStays;
-        if (!s.blackstarStays)
-            LOG("[blackstar] BlackstarStays is 0, so Blackstar keeps the game's spawn duration and lifts off again "
-                "a little while after you get down.");
+        int waited = 0, tick = 0;
+        bool reported = false;
         while (!g_stop.load())
         {
             if (!reported)
@@ -198,6 +212,8 @@ namespace
                 reported = fp::tables::Probe();
                 if (reported)
                 {
+                    if (s.probe && s.groundCheck != 0.0f)
+                        fp::tables::SetGroundCheck(s.groundCheck);
                     if (s.ceiling == 0.0f)
                         LOG("[ceiling] Ceiling is 0, so the game's %.1f stands.", fp::sig::kVehicleFlyingCeiling);
                     else
@@ -206,20 +222,6 @@ namespace
                 else if (++waited == 120)
                     LOG_ERR("[table] vehicleinfo and regioninfo were still not loaded after two minutes. The ceiling "
                             "will keep trying, but something about the resolver has changed on this build.");
-            }
-            // characterinfo is its own table and may land a poll or two after
-            // the other two, so it is asked on each pass until it answers,
-            // for two minutes at most.
-            if (reported && !starDone)
-            {
-                const int r = fp::tables::SetBlackstarStays();
-                if (r != fp::tables::kNotReady) starDone = true;
-                else if (++starTries == 60)   // a pass is 2 seconds
-                {
-                    LOG_ERR("[blackstar] characterinfo was still not loaded after two minutes, so Blackstar keeps "
-                            "the game's spawn duration this session.");
-                    starDone = true;
-                }
             }
             if (s.probe)
             {
@@ -283,6 +285,7 @@ namespace fp::Mod
         if (const int gone = Log::RemovePerProcessLogs(FP_FILEBASE))
             LOG("[mod] removed %d stray %ls.other-<pid>.log files that builds up to 1.1.2 left in this "
                 "folder. This build writes one %ls.other.log and replaces it.", gone, FP_FILEBASE, FP_FILEBASE);
+        Log::StartWriter();
         g_thread = CreateThread(nullptr, 0, Worker, nullptr, 0, nullptr);
     }
 
@@ -291,7 +294,7 @@ namespace fp::Mod
         g_stop.store(true);
         if (processExiting)
         {
-            Log::Shutdown();
+            Log::Shutdown(true);
             return;
         }
         if (g_thread)

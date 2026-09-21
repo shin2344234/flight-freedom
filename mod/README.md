@@ -1,10 +1,10 @@
 # Flight Freedom
 
-Lifts the mount restrictions in Crimson Desert 2.03.00 (exe 1.0.0.2944):
+Lifts the mount restrictions in Crimson Desert 2.03.01 (exe 1.0.0.2949):
 the 1350 flying ceiling, the region rule that dismounts you at altitude and
 keeps mounts out of listed regions, the "Cannot summon in this area." refusal
-inside the Abyss, and the rule that throws you off when you fly low over a
-town.
+inside the Abyss, the rule that throws you off when you fly low over a
+town, and Blackstar flying away on his own about 30 seconds after he lands.
 
 ## Install
 
@@ -42,7 +42,7 @@ All in `FlightFreedom.ini`, section `[settings]`.
 | `AbyssSummon` | `1` | The summon validator never refuses for the region. Redundant with `NoFlyZones=1`, kept so Abyss summons work with `NoFlyZones=0`. |
 | `PlatformSummon` | `0` | The summon validator never refuses for what you are standing on. That check is what blocks a summon on an Abyss Nexus teleport circle. Off by default, see below. |
 | `TownFlight` | `1` | Flying low over a town off the road never dismounts you. |
-| `BlackstarStays` | `1` | Blackstar stays where you get off it instead of lifting off a little later. `0` keeps the game's behaviour. |
+| `BlackstarStays` | `1` | Blackstar stays where you get off it instead of flying away about 30 seconds later. `0` keeps the game's behaviour. |
 | `Probe` | `0` | Research mode. Hooks every mount condition, reads `[sites]`, `[patch]` and `[watch]`, and makes the log large. |
 
 `AboveCeiling` and `SummonAnywhere` are research overrides and only apply
@@ -57,16 +57,19 @@ and the Wyvern and none on every other mount. The plugin resolves the table
 by name at startup, finds the field by its row count, writes the new value
 over the two rows and reads it back.
 
-A called mount stays out for its spawn duration in `characterinfo`. Blackstar
-carries 600 and the Wyvern 0, which is why the Wyvern never leaves.
-`BlackstarStays` gives Blackstar the 0. The field is found by four values
-together: Blackstar's cooldown and duration, 3600 and 600, next to the
-Wyvern's 300 and 0 at the same place. If that is not found exactly once,
-nothing is written.
+Blackstar leaves because his AI starts a takeoff action about 30 seconds
+after he lands. Every action an AI starts goes through one function in the
+game, and `BlackstarStays` hooks it and refuses that action by its id. His AI
+asks again every 30 seconds and is refused each time. Every other action, on
+Blackstar or on anyone else, goes through untouched. The function is found by
+its own bytes, and if the one place that calls it points somewhere else,
+nothing is hooked and the log says so.
 
-`LandedTimeout`, which earlier versions shipped for the same problem, is
-retired. It wrote a `vehicleinfo` float that the game's own loader names
-`_checkDistanceToGround`, so it could never have changed the liftoff.
+1.1.5 tried this by changing Blackstar's spawn duration in `characterinfo`,
+and it did nothing. With the value at 0 and again at 9,999,999 he left all the
+same. Before that came `LandedTimeout`, which wrote the `vehicleinfo` float
+the game's own loader names `_checkDistanceToGround`. Both are retired, and an
+old number in `BlackstarStays` is read as on.
 
 Everything else is one routine. Each region in `regioninfo` carries a list
 of mount categories it blocks, and a routine asks whether the region you are
@@ -98,7 +101,7 @@ The hooks and patches are restored when the plugin unloads.
 
 ## Known limits
 
-- Built for 2.03.00 (exe 1.0.0.2944). A patch will not apply on a different
+- Built for 2.03.01 (exe 1.0.0.2949). A patch will not apply on a different
   build, and the log names each one that refused. The ceiling is found by
   name and not by address, so it can keep working after an update that stops
   the patches.
