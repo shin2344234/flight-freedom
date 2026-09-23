@@ -1,0 +1,42 @@
+{
+  "name": "Flight Freedom",
+  "fileBase": "FlightFreedom",
+  "version": {
+    "header": "mod/src/version.h",
+    "macro": "FP_VERSION"
+  },
+  "scriptsDir": "mod/scripts",
+  "dist": "mod/dist",
+  "sources": [
+    "mod/src",
+    "mod/FlightFreedom.ini",
+    "mod/CMakeLists.txt"
+  ],
+  "manualZip": [
+    "mod/README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "gates": [
+    {
+      "name": "the hook engine passes SitesTest",
+      "run": "mod\\build\\SitesTest.exe"
+    }
+  ],
+  "evergreen": [
+    "private/nexus/nexus-description.bbcode",
+    "README.md"
+  ],
+  "github": "shin2344234/flight-freedom",
+  "nexus": {
+    "game": "crimsondesert",
+    "page": "3488",
+    "modId": "38521561681312",
+    "dmmFileId": "7961412",
+    "manualFileId": "7964508"
+  },
+  "discord": {
+    "channel": "1547305058922668072"
+  },
+  "requires": []
+}

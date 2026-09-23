@@ -146,10 +146,11 @@ SHA-256 for 1.1.7:
 
 MSVC Build Tools 2022 with the CMake and Ninja they bundle. Run `mod\build.bat`
 by full path; it stages `mod\dist`. Then `mod\scripts\sign.ps1` to sign and
-`mod\package.ps1` to build both archives and print their checksums, in that
-order, since the checksums are of the signed file.
+`mod\scripts\package.ps1` to build both archives and print their checksums, in
+that order, since the checksums are of the signed file.
 
-`build\SitesTest.exe` should pass after any change under `mod\src\game`.
+`mod\build\SitesTest.exe` should pass after any change under `mod\src\game`,
+and `package.ps1` refuses to build the archives until it does.
 
 ## Licence
 
