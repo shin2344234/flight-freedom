@@ -124,7 +124,7 @@ namespace
         WriteDefaultIni();
         const Settings s = ReadSettings();
 
-        LOG("[mod] %s %s for Crimson Desert 2.03.01 (exe 1.0.0.2949). Settings: Ceiling=%s NoFlyZones=%d "
+        LOG("[mod] %s %s for Crimson Desert 2.03.02 (exe 1.0.0.2976). Settings: Ceiling=%s NoFlyZones=%d "
             "AbyssSummon=%d PlatformSummon=%d TownFlight=%d BlackstarStays=%d Probe=%d", FP_NAME, FP_VERSION,
             s.ceiling == 0.0f ? "0 (game's own)" : (s.ceiling < 0.0f ? "-1 (none)" : "custom"),
             s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.platformSummon ? 1 : 0, s.townFlight ? 1 : 0,

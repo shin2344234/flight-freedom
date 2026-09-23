@@ -1,8 +1,8 @@
 #pragma once
 #include <cstdint>
 
-// Byte patterns, offsets and RTTI names for Crimson Desert 2.03.01
-// (exe 1.0.0.2949). Everything here is lifted from Master Looter's
+// Byte patterns, offsets and RTTI names for Crimson Desert 2.03.02
+// (exe 1.0.0.2976). Everything here is lifted from Master Looter's
 // signatures.h except the condition names, which came out of the flight
 // research in private/FEASIBILITY.md.
 namespace fp::sig
@@ -148,9 +148,20 @@ namespace fp::sig
     // bytes unchanged, the region routine still has exactly the same two
     // callers, and conditioninfo and vehicleinfo are byte for byte the
     // 2.03.00 tables, so the one-row argument for TownFlight still holds.
+    //
+    // Moved for 2.03.02 (exe 1.0.0.2976) on 23 September 2026, again from
+    // the RTTI names (private/research/find_patches.py). The shifts are not
+    // uniform this time: NoFlyZones went back by 0x90 to +0x1778BE0,
+    // TownFlight forward by 0x50 to +0x2267C70, and the whole validator
+    // forward by 0x60 (+0x9DD420 -> +0x9DD480, its second half +0x9DD760 ->
+    // +0x9DD7C0), carrying both summon branches with it. Every function
+    // involved has its 2.03.00 size, the original bytes are unchanged, the
+    // region routine still has exactly two direct callers, and conditioninfo,
+    // vehicleinfo, characterinfo and regioninfo are byte for byte the 2.03.01
+    // files.
     struct BytePatch { const char* name; uintptr_t rva; const uint8_t* orig; const uint8_t* repl; unsigned len; };
 
-    // +0x1778C70 answers whether any region the actor stands in, or a parent
+    // +0x1778BE0 answers whether any region the actor stands in, or a parent
     // of it, lists the mount's category in its block list. It has exactly two
     // callers: the summon validator (ClientMercenaryClanActorComponent slot
     // 41) and ConditionData_IsVehicleAllowedInEnteredRegion, which is what
@@ -158,24 +169,24 @@ namespace fp::sig
     // region. `xor eax,eax; ret` makes it say "not blocked" to both.
     inline constexpr uint8_t kNoFlyZones_Orig[] = { 0x48, 0x89, 0x5C };  // mov [rsp+8], rbx
     inline constexpr uint8_t kNoFlyZones_Repl[] = { 0x31, 0xC0, 0xC3 };  // xor eax,eax; ret
-    inline constexpr BytePatch kPatch_NoFlyZones = { "NoFlyZones", 0x1778C70, kNoFlyZones_Orig, kNoFlyZones_Repl, 3 };
+    inline constexpr BytePatch kPatch_NoFlyZones = { "NoFlyZones", 0x1778BE0, kNoFlyZones_Orig, kNoFlyZones_Repl, 3 };
 
-    // +0x9DD899 is the `je` in the validator that skips writing
+    // +0x9DD8F9 is the `je` in the validator that skips writing
     // eErrNoCallVehicleMercenaryRegion ("Cannot summon in this area.") when
     // the routine above says the region does not block. Made unconditional,
     // so the summon side is covered even with NoFlyZones off.
     inline constexpr uint8_t kAbyssSummon_Orig[] = { 0x74, 0x75 };       // je +0x75
     inline constexpr uint8_t kAbyssSummon_Repl[] = { 0xEB, 0x75 };       // jmp +0x75
-    inline constexpr BytePatch kPatch_AbyssSummon = { "AbyssSummon", 0x9DD899, kAbyssSummon_Orig, kAbyssSummon_Repl, 2 };
+    inline constexpr BytePatch kPatch_AbyssSummon = { "AbyssSummon", 0x9DD8F9, kAbyssSummon_Orig, kAbyssSummon_Repl, 2 };
 
-    // +0x9DD646 is the `je` in the validator body that skips writing
+    // +0x9DD6A6 is the `je` in the validator body that skips writing
     // eErrNoCallVehicleMercenaryMovableNavigation ("Cannot summon here.") when
     // whatever the player is standing on carries no flag. The chain above it
     // reads transform+0x408 for the id of the thing underfoot (+0x3F4 on
     // 2.02.00; the transform grew), resolves that actor through
     // ClientActorManager slot 5 (+0x8AE140), takes its gimmick key from +0x48
     // and tests byte +0x169 of the gimmickinfo row that +0x3885B0 resolves.
-    // Three branches already fall through to the allowed path at +0x9DD676:
+    // Three branches already fall through to the allowed path at +0x9DD6D6:
     // nothing underfoot, no key, flag clear. This makes the
     // fourth fall through with them, and both paths run the same release on
     // the way out, so the refcounting is unchanged.
@@ -192,9 +203,9 @@ namespace fp::sig
     // can then be summoned onto a moving platform anywhere in the game.
     inline constexpr uint8_t kPlatformSummon_Orig[] = { 0x74, 0x2E };   // je +0x2E
     inline constexpr uint8_t kPlatformSummon_Repl[] = { 0xEB, 0x2E };   // jmp +0x2E
-    inline constexpr BytePatch kPatch_PlatformSummon = { "PlatformSummon", 0x9DD646, kPlatformSummon_Orig, kPlatformSummon_Repl, 2 };
+    inline constexpr BytePatch kPatch_PlatformSummon = { "PlatformSummon", 0x9DD6A6, kPlatformSummon_Orig, kPlatformSummon_Repl, 2 };
 
-    // +0x2267C20 is ConditionData_IsAboveRoad's condition slot. It reads the
+    // +0x2267C70 is ConditionData_IsAboveRoad's condition slot. It reads the
     // road type and radius baked into the condition object, asks the actor's
     // navigation component, and inverts the answer. Exactly one conditioninfo
     // row uses it, out of 10,798 on 2.03.00 and 10,785 on 2.02.00: row
@@ -205,11 +216,11 @@ namespace fp::sig
     // escalation and trade pricing.
     inline constexpr uint8_t kTownFlight_Orig[] = { 0x48, 0x83, 0xEC };  // sub rsp, 0x28
     inline constexpr uint8_t kTownFlight_Repl[] = { 0x31, 0xC0, 0xC3 };  // xor eax,eax; ret
-    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x2267C20, kTownFlight_Orig, kTownFlight_Repl, 3 };
+    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x2267C70, kTownFlight_Orig, kTownFlight_Repl, 3 };
 
     // --- Blackstar's takeoff (BlackstarStays) --------------------------------
-    // Every action an AI chart starts goes through one function (+0x21C0940
-    // on 2.03.01, +0x21C0930 on 2.03.00). It takes the actor's navigation
+    // Every action an AI chart starts goes through one function (+0x21C0990
+    // on 2.03.02, +0x21C0940 on 2.03.01, +0x21C0930 on 2.03.00). It takes the actor's navigation
     // component in rcx and the request in r9, and the request's first qword
     // is the action's hash. A landed mount starts 0x31D37232, and 30.03 s
     // later its chart starts 0x513043A8 and it flies off; the same two hashes
@@ -217,7 +228,7 @@ namespace fp::sig
     // second is what keeps Blackstar on the ground.
     //
     // Found by its entry: three null checks on the request, then a flag test
-    // on what it points at. Unique on 2.03.01.
+    // on what it points at. Unique on 2.03.01 and 2.03.02.
     inline constexpr const char* kSig_StartAction =
         "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 50 49 8B 41 08 49 8B D9 49 8B F0 48 8B F9 "
         "48 85 C0 74 ?? 49 83 79 10 00 74 ?? 49 83 79 18 00 74 ?? 49 8B 49 18 F6 81 0E 01 00 00 10";

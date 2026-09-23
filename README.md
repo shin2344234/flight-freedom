@@ -1,6 +1,6 @@
 # Flight Freedom
 
-Removes the flying ceiling and the no-fly zones in Crimson Desert 2.03.01, lets
+Removes the flying ceiling and the no-fly zones in Crimson Desert 2.03.02, lets
 a mount be summoned inside the Abyss, stops towns throwing you off in the air,
 and keeps Blackstar where you leave him.
 
@@ -111,11 +111,12 @@ VirusTotal, the DMM archive 0 of 66 and the full archive 0 of 68. All three
 0 of 67 and the full archive 0 of 68. For 1.1.3 the plugin scored 0 of 70 and
 both archives 0 of 68. For 1.1.4 and again for 1.1.5 the plugin scored 0 of 70,
 the DMM archive 0 of 68 and the full archive 0 of 67. For 1.1.6 the plugin
-scored 0 of 71, the DMM archive 0 of 67 and the full archive 0 of 68. Seven
-releases is still a short history, so the figures stay here one release at a
-time instead of collapsing into a single score. 1.1.6 reports: [the plugin](https://www.virustotal.com/gui/file/596b1d62c7324f5342ad202af0df44969ecb91abb676e96de50bed3b3a488b0d),
-[the DMM archive](https://www.virustotal.com/gui/file/ed7a4728e7c86efec953a58fcc838d321bd9b9d254811b69e3a31fd59b2ab839) and
-[the full archive](https://www.virustotal.com/gui/file/3e4373d870703b9df024769372f1725e009f0945608eb77854b6b3a5eb844643).
+scored 0 of 71, the DMM archive 0 of 67 and the full archive 0 of 68. For 1.1.7
+the plugin scored 0 of 71, the DMM archive 0 of 68 and the full archive 0 of
+66. Eight releases is still a short history, so the figures stay here one
+release at a time instead of collapsing into a single score. 1.1.7 reports: [the plugin](https://www.virustotal.com/gui/file/21aa48780428f4e8f6d561c6a7928dd0eebd13d530964b93446827afd6c478f5),
+[the DMM archive](https://www.virustotal.com/gui/file/cba95832e25fb3745bd9f8ff2453d0ff9f8fae6d7994de4924696f9a3cf8d2fd) and
+[the full archive](https://www.virustotal.com/gui/file/07fdd46294dff48773d85c048cd04407a13923bbe5f6fb917258b131892e1c6b).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -135,11 +136,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.6:
+SHA-256 for 1.1.7:
 
-    ed7a4728e7c86efec953a58fcc838d321bd9b9d254811b69e3a31fd59b2ab839  FlightFreedom-1.1.6-DMM.zip
-    3e4373d870703b9df024769372f1725e009f0945608eb77854b6b3a5eb844643  FlightFreedom-1.1.6.zip
-    596b1d62c7324f5342ad202af0df44969ecb91abb676e96de50bed3b3a488b0d  FlightFreedom.asi
+    cba95832e25fb3745bd9f8ff2453d0ff9f8fae6d7994de4924696f9a3cf8d2fd  FlightFreedom-1.1.7-DMM.zip
+    07fdd46294dff48773d85c048cd04407a13923bbe5f6fb917258b131892e1c6b  FlightFreedom-1.1.7.zip
+    21aa48780428f4e8f6d561c6a7928dd0eebd13d530964b93446827afd6c478f5  FlightFreedom.asi
 
 ## Building
 
