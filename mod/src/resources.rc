@@ -1,0 +1,5 @@
+// Setting labels, types, ranges and help for INI Master, which reads this
+// resource from the plugin's bytes without loading it. The type must be
+// INIMETA. Keep the file in step with ReadSettings() in core/mod.cpp;
+// scripts/check_inimeta.py compares the two.
+FF_INIMETA INIMETA "../data/FlightFreedom.inimeta"

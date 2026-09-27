@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(FlightProbe LANGUAGES CXX)
+project(FlightProbe LANGUAGES CXX RC)
 
 # Flight Freedom: an ASI plugin for Crimson Desert 2.02.00 that lifts the
 # flying ceiling and the region block list behind no-fly zones and the Abyss
@@ -55,7 +55,13 @@ add_library(FlightProbe SHARED
     src/game/conditions.cpp
     src/game/sites.cpp
     src/game/takeoff.cpp
+    src/resources.rc
 )
+
+# INI Master reads FlightFreedom.inimeta out of the built plugin as the
+# INIMETA resource (src/resources.rc); rebuild when the metadata changes.
+set_source_files_properties(src/resources.rc PROPERTIES OBJECT_DEPENDS
+    "${CMAKE_SOURCE_DIR}/data/FlightFreedom.inimeta")
 
 target_include_directories(FlightProbe PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}/generated" ${minhook_SOURCE_DIR}/src/hde)
 target_link_libraries(FlightProbe PRIVATE minhook)

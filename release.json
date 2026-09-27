@@ -9,6 +9,7 @@
   "dist": "mod/dist",
   "sources": [
     "mod/src",
+    "mod/data",
     "mod/FlightFreedom.ini",
     "mod/CMakeLists.txt"
   ],
@@ -21,6 +22,10 @@
     {
       "name": "the hook engine passes SitesTest",
       "run": "mod\\build\\SitesTest.exe"
+    },
+    {
+      "name": "the inimeta matches ReadSettings()",
+      "run": "py -3 scripts\\check_inimeta.py"
     }
   ],
   "evergreen": [
