@@ -68,6 +68,7 @@ namespace
         bool  noFlyZones;     // region block list answers "not blocked"
         bool  abyssSummon;    // validator never refuses a summon for the region
         bool  platformSummon; // validator never refuses a summon for what is underfoot
+        bool  blockedSummon;  // validator never refuses a summon for something in the way
         bool  townFlight;     // the town dismount condition can never be true
         // Refuse the takeoff action a landed Blackstar's chart starts. Up to
         // 1.1.5 this wrote the spawn duration in characterinfo, which was
@@ -88,6 +89,7 @@ namespace
         s.noFlyZones     = ReadSetting(L"NoFlyZones", L"1") != 0.0f;
         s.abyssSummon    = ReadSetting(L"AbyssSummon", L"1") != 0.0f;
         s.platformSummon = ReadSetting(L"PlatformSummon", L"0") != 0.0f;
+        s.blockedSummon  = ReadSetting(L"BlockedSummon", L"1") != 0.0f;
         s.townFlight     = ReadSetting(L"TownFlight", L"1") != 0.0f;
         s.blackstarStays = ReadSetting(L"BlackstarStays", L"1");
         s.groundCheck    = ReadSetting(L"GroundCheck", L"0");
@@ -125,9 +127,10 @@ namespace
         const Settings s = ReadSettings();
 
         LOG("[mod] %s %s for Crimson Desert 2.03.02 (exe 1.0.0.2976). Settings: Ceiling=%s NoFlyZones=%d "
-            "AbyssSummon=%d PlatformSummon=%d TownFlight=%d BlackstarStays=%d Probe=%d", FP_NAME, FP_VERSION,
-            s.ceiling == 0.0f ? "0 (game's own)" : (s.ceiling < 0.0f ? "-1 (none)" : "custom"),
-            s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.platformSummon ? 1 : 0, s.townFlight ? 1 : 0,
+            "AbyssSummon=%d PlatformSummon=%d BlockedSummon=%d TownFlight=%d BlackstarStays=%d Probe=%d", FP_NAME,
+            FP_VERSION, s.ceiling == 0.0f ? "0 (game's own)" : (s.ceiling < 0.0f ? "-1 (none)" : "custom"),
+            s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.platformSummon ? 1 : 0, s.blockedSummon ? 1 : 0,
+            s.townFlight ? 1 : 0,
             static_cast<int>(s.blackstarStays), s.probe ? 1 : 0);
         if (s.oldLanded)
             LOG("[mod] LandedTimeout is set in the ini and is ignored. It never reached a timer: it wrote Blackstar's "
@@ -158,6 +161,13 @@ namespace
             LOG("[patch] PlatformSummon is 0: a summon is still refused while you stand on a flagged "
                 "gimmick. If one is refused with \"Cannot summon here.\" and walking a few paces off "
                 "whatever you are standing on fixes it, this is the setting to try.");
+        if (s.blockedSummon)
+            fp::sites::ApplyPatch(fp::sig::kPatch_BlockedSummon.name, fp::sig::kPatch_BlockedSummon.rva,
+                                  fp::sig::kPatch_BlockedSummon.orig, fp::sig::kPatch_BlockedSummon.repl,
+                                  fp::sig::kPatch_BlockedSummon.len);
+        else
+            LOG("[patch] BlockedSummon is 0: a summon is still refused with \"You cannot do that here.\" when "
+                "something solid is close around you, as on the Abyss Nexus.");
         if (s.townFlight)
             fp::sites::ApplyPatch(fp::sig::kPatch_TownFlight.name, fp::sig::kPatch_TownFlight.rva,
                                   fp::sig::kPatch_TownFlight.orig, fp::sig::kPatch_TownFlight.repl,

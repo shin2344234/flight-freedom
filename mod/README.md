@@ -10,13 +10,13 @@ town, and Blackstar flying away on his own about 30 seconds after he lands.
 
 1. Install an ASI loader in `bin64` next to `CrimsonDesert.exe`. Ultimate ASI
    Loader as `winmm.dll` is what this was built against.
-2. Copy `FlightFreedom.asi` and `FlightFreedom.ini` into `bin64`.
+2. Copy `FlightFreedom.asi` into `bin64`.
 3. Play. The plugin writes `FlightFreedom.log` next to itself with a line for
    each thing it changed and what it read back.
 
-If there is no `FlightFreedom.ini` beside the plugin when the game starts, the
-plugin writes the documented one there. An ini that already exists is never
-touched.
+The archive carries no ini. The first time the game starts with no
+`FlightFreedom.ini` beside the plugin, the plugin writes the documented one
+there. An ini that already exists is never touched.
 
 If another mod already owns `winmm.dll`, give the loader a name nothing else
 has claimed. `xinput1_4.dll`, `wininet.dll`, `winhttp.dll` and `d3d12.dll` are
@@ -41,6 +41,7 @@ All in `FlightFreedom.ini`, section `[settings]`.
 | `NoFlyZones` | `1` | The region block list answers "not blocked" everywhere. No altitude dismount, no refused ride into a listed region. |
 | `AbyssSummon` | `1` | The summon validator never refuses for the region. Redundant with `NoFlyZones=1`, kept so Abyss summons work with `NoFlyZones=0`. |
 | `PlatformSummon` | `0` | The summon validator never refuses for what you are standing on. That check is what blocks a summon on an Abyss Nexus teleport circle. Off by default, see below. |
+| `BlockedSummon` | `1` | The summon validator never refuses for something solid close around you. That check is what says "You cannot do that here." on the Abyss Nexus, to every mount. |
 | `TownFlight` | `1` | Flying low over a town off the road never dismounts you. |
 | `BlackstarStays` | `1` | Blackstar stays where you get off it instead of flying away about 30 seconds later. `0` keeps the game's behaviour. |
 | `Probe` | `0` | Research mode. Hooks every mount condition, reads `[sites]`, `[patch]` and `[watch]`, and makes the log large. |
@@ -87,6 +88,12 @@ is such an object and the Abyss floor is not, which is why stepping off the
 circle lets the summon through. `PlatformSummon` turns that branch into a jump
 past the refusal. The flag itself is left alone, so nothing else that reads it
 changes.
+
+After the region rule the validator checks the space around you. It asks the
+physics scene what overlaps a small box at your feet, and when something
+solid is there it refuses with "You cannot do that here." The Abyss Nexus
+trips it for every mount, the Wyvern included. `BlockedSummon` turns the
+branch after that check into a jump past the refusal.
 
 Towns are a separate rule, and a narrower one. The condition reads "in town
 and not above a road within 20", so riding through on the road is fine and

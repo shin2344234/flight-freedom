@@ -205,6 +205,19 @@ namespace fp::sig
     inline constexpr uint8_t kPlatformSummon_Repl[] = { 0xEB, 0x2E };   // jmp +0x2E
     inline constexpr BytePatch kPatch_PlatformSummon = { "PlatformSummon", 0x9DD6A6, kPlatformSummon_Orig, kPlatformSummon_Repl, 2 };
 
+    // After the region check the validator calls +0x39A730 (at +0x9DDA0B),
+    // which puts a small box around the player, asks the physics scene what
+    // overlaps it and, if any hit passes +0x711C40, writes
+    // eErrNoInvalidPositionForAction ("You cannot do that here."). +0x9DDA18
+    // is the `je` that skips the refusal when nothing was in the way. Seth,
+    // 2 October 2026: standing on the Abyss Nexus with NoFlyZones,
+    // AbyssSummon and the platform check passed, the Wyvern was still refused
+    // with exactly that line. The helper's two other callers (+0x50ABB0,
+    // +0xA9A860) are left alone.
+    inline constexpr uint8_t kBlockedSummon_Orig[] = { 0x74, 0x36 };     // je +0x36
+    inline constexpr uint8_t kBlockedSummon_Repl[] = { 0xEB, 0x36 };     // jmp +0x36
+    inline constexpr BytePatch kPatch_BlockedSummon = { "BlockedSummon", 0x9DDA18, kBlockedSummon_Orig, kBlockedSummon_Repl, 2 };
+
     // +0x2267C70 is ConditionData_IsAboveRoad's condition slot. It reads the
     // road type and radius baked into the condition object, asks the actor's
     // navigation component, and inverts the answer. Exactly one conditioninfo

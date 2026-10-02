@@ -46,8 +46,9 @@ when the plugin unloads.
 ## Installing
 
 Ultimate ASI Loader (`winmm.dll`) must be in the game's `bin64` folder. With the
-game closed, copy `FlightFreedom.asi` and `FlightFreedom.ini` in beside it.
-Uninstall by deleting them.
+game closed, copy `FlightFreedom.asi` in beside it. The first launch writes
+`FlightFreedom.ini` next to it with every setting documented. Uninstall by
+deleting the FlightFreedom files.
 
 If another mod already owns `winmm.dll`, rename Ultimate ASI Loader to another
 name the game loads. `xinput1_4.dll`, `wininet.dll`, `winhttp.dll` and
@@ -78,6 +79,7 @@ below is also the plugin's own.
 | `NoFlyZones` | `1` | `1` means no region blocks any mount. |
 | `AbyssSummon` | `1` | `1` means the summon check never refuses for the region. |
 | `PlatformSummon` | `0` | `1` means the summon check never refuses for what you are standing on, which is what stops a summon on an Abyss Nexus circle. Off by default: read out of the disassembly and one report, not played yet. |
+| `BlockedSummon` | `1` | `1` means the summon check never refuses for something solid close around you, which is what says "You cannot do that here." on the Abyss Nexus, to the Wyvern as well. |
 | `TownFlight` | `1` | `1` means flying low over a town off the road never dismounts you. |
 | `BlackstarStays` | `1` | Blackstar stays where you get off it instead of flying away about 30 seconds later. `0` keeps the game's behaviour. In 1.1.5 this changed his spawn duration, which did nothing, and an old number left here is read as `1`. `LandedTimeout` is retired and ignored. |
 | `Probe` | `0` | Research mode. Hooks every mount-related check and reads the `[sites]`, `[patch]` and `[watch]` sections. The log becomes large. |
@@ -114,9 +116,9 @@ the DMM archive 0 of 68 and the full archive 0 of 67. For 1.1.6 the plugin
 scored 0 of 71, the DMM archive 0 of 67 and the full archive 0 of 68. For 1.1.7
 the plugin scored 0 of 71, the DMM archive 0 of 68 and the full archive 0 of
 66. Eight releases is still a short history, so the figures stay here one
-release at a time instead of collapsing into a single score. 1.1.7 reports: [the plugin](https://www.virustotal.com/gui/file/21aa48780428f4e8f6d561c6a7928dd0eebd13d530964b93446827afd6c478f5),
-[the DMM archive](https://www.virustotal.com/gui/file/cba95832e25fb3745bd9f8ff2453d0ff9f8fae6d7994de4924696f9a3cf8d2fd) and
-[the full archive](https://www.virustotal.com/gui/file/07fdd46294dff48773d85c048cd04407a13923bbe5f6fb917258b131892e1c6b).
+release at a time instead of collapsing into a single score. 1.1.7 reports: [the plugin](https://www.virustotal.com/gui/file/f6fd1a2f12c55552ea593a3bee6914d94225ac130a16da094af563d15bd96288),
+[the DMM archive](https://www.virustotal.com/gui/file/f23568f1509c2829b769fe4fde95a899316041e85ffb437779cd4b872166661a) and
+[the full archive](https://www.virustotal.com/gui/file/dd25a8c3e9cb3e3831a1d7963510fdadc37498eed5b402f24cb3fe5d5fb7b885).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -136,11 +138,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.7:
+SHA-256 for 1.1.8:
 
-    cba95832e25fb3745bd9f8ff2453d0ff9f8fae6d7994de4924696f9a3cf8d2fd  FlightFreedom-1.1.7-DMM.zip
-    07fdd46294dff48773d85c048cd04407a13923bbe5f6fb917258b131892e1c6b  FlightFreedom-1.1.7.zip
-    21aa48780428f4e8f6d561c6a7928dd0eebd13d530964b93446827afd6c478f5  FlightFreedom.asi
+    f23568f1509c2829b769fe4fde95a899316041e85ffb437779cd4b872166661a  FlightFreedom-1.1.8-DMM.zip
+    dd25a8c3e9cb3e3831a1d7963510fdadc37498eed5b402f24cb3fe5d5fb7b885  FlightFreedom-1.1.8.zip
+    f6fd1a2f12c55552ea593a3bee6914d94225ac130a16da094af563d15bd96288  FlightFreedom.asi
 
 ## Building
 

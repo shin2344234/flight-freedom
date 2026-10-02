@@ -60,6 +60,15 @@
           "help": "Summoning while standing on something the game flags as a platform is refused with \"Cannot summon here.\", including Abyss Nexus teleport circles. Off by default: the reading comes from the disassembly and one report rather than a played test, and turning it on also lets a mount be summoned onto a moving platform anywhere in the game.",
           "order": 4
         },
+        "BlockedSummon": {
+          "label": "Ignore the something-in-the-way summon refusal",
+          "type": "bool",
+          "default": "1",
+          "true": "1",
+          "false": "0",
+          "help": "After the region rule the summon validator checks a small box around you and refuses with \"You cannot do that here.\" when anything solid is in it. On the Abyss Nexus that refuses every mount, the Wyvern included. On, that refusal never happens, which also lets a mount be called where the game thinks it has no room.",
+          "order": 5
+        },
         "TownFlight": {
           "label": "Ignore the town dismount",
           "type": "bool",
@@ -67,7 +76,7 @@
           "true": "1",
           "false": "0",
           "help": "Flying low over a town, off the road, dismounts you with \"Cannot ride the mount in town.\" On, the road half of that rule always answers yes, so it can never fire. It reaches that one rule and nothing else; the in-town half is left alone because 23 other rows use it for bounty escalation and trade pricing.",
-          "order": 5
+          "order": 6
         },
         "BlackstarStays": {
           "label": "Keep Blackstar from flying off",
@@ -76,7 +85,7 @@
           "true": "1",
           "false": "0",
           "help": "Blackstar flies off about 30 seconds after he lands. On, the one action his AI uses to take off is refused and nothing else changes: you can still ride him, and summoning him again still works. Any value other than 0 here means on.",
-          "order": 6
+          "order": 7
         },
         "Probe": {
           "label": "Research mode",
@@ -86,7 +95,7 @@
           "false": "0",
           "advanced": true,
           "help": "Hooks every mount-related condition and reads the [sites], [patch] and [watch] sections below. Not needed for the mod to work, and the log becomes large.",
-          "order": 7
+          "order": 8
         },
         "AboveCeiling": {
           "label": "Research: allow above a height",
@@ -94,7 +103,7 @@
           "default": "0",
           "advanced": true,
           "help": "Only with Probe on: answers a region refusal above this height as allowed. 0 is off, -1 is any height, a positive number is that height. NoFlyZones on already makes this moot.",
-          "order": 8
+          "order": 9
         },
         "SummonAnywhere": {
           "label": "Research: allow any summon gate",
@@ -104,7 +113,7 @@
           "false": "0",
           "advanced": true,
           "help": "Only with Probe on: answers a refusing summon gate condition as allowed. Not a fix: with a mount already out this forces its ground check to yes and produces \"Cannot summon mount while it's on the ground\".",
-          "order": 9
+          "order": 10
         },
         "GroundCheck": {
           "label": "Research: ground-check distance",
@@ -113,7 +122,7 @@
           "hidden": true,
           "advanced": true,
           "help": "Only with Probe on: overrides the vehicleinfo ground-check distance the game uses. 0 leaves the game's own value alone. Not written into the shipped ini; add the key by hand under [settings] to use it.",
-          "order": 10
+          "order": 11
         },
         "LandedTimeout": {
           "label": "Retired: old Blackstar timer",
@@ -124,7 +133,7 @@
           "hidden": true,
           "readonly": true,
           "help": "Retired in 1.1.6. Up to 1.1.5 this set Blackstar's ground-check distance in characterinfo, which turned out to change nothing about when he takes off. BlackstarStays replaced it. Setting this now only makes the log note that an old value is present; it does nothing else.",
-          "order": 11
+          "order": 12
         }
       }
     },
