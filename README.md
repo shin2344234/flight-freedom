@@ -2,12 +2,14 @@
 
 Removes the flying ceiling and the no-fly zones in Crimson Desert 2.03.02, lets
 a mount be summoned inside the Abyss, stops towns throwing you off in the air,
-and keeps Blackstar where you leave him.
+keeps Blackstar where you leave him, and takes away his hour-long summon
+cooldown.
 
 Blackstar and the Wyvern stop climbing at 1350, and a little over 1500 the game
 takes the mount away from you. Mounts cannot be called on the floor of the
 Abyss. Flying low across a town off the road dismounts you. Blackstar flies off
-on his own about 30 seconds after he lands. Each of those is a value, a branch
+on his own about 30 seconds after he lands, and there is an hour's cooldown
+before he can be called again. Each of those is a value, a branch
 or a single call that the plugin changes in memory at startup, with no game
 file touched and nothing written to a save.
 
@@ -38,6 +40,13 @@ file touched and nothing written to a save.
   action by its id, and lets everything else through. He stays where you left
   him, you can still ride him, and summoning him from more than 30 m away
   works as before.
+- **Blackstar's summon cooldown.** `characterinfo` gives Blackstar a summon
+  cooldown of 3600 seconds, an hour. The plugin finds that field through the
+  game's own table loader and writes 0 over his row alone. A cooldown that is
+  already running keeps the end time the game stored when it began, so the
+  plugin also hooks the one check that refuses a summon for a cooldown and
+  lets Blackstar through it. Every other mount, and every other reason for a
+  refusal, gets the game's answer.
 
 Every patch checks the bytes it is about to change and refuses on any other
 game build, with a line in the log rather than a damaged game. All are restored
@@ -82,6 +91,7 @@ below is also the plugin's own.
 | `BlockedSummon` | `1` | `1` means the summon check never refuses for something solid close around you, which is what says "You cannot do that here." on the Abyss Nexus, to the Wyvern as well. |
 | `TownFlight` | `1` | `1` means flying low over a town off the road never dismounts you. |
 | `BlackstarStays` | `1` | Blackstar stays where you get off it instead of flying away about 30 seconds later. `0` keeps the game's behaviour. In 1.1.5 this changed his spawn duration, which did nothing, and an old number left here is read as `1`. `LandedTimeout` is retired and ignored. |
+| `BlackstarCooldown` | `0` | Blackstar's summon cooldown in seconds. `0` removes it, a cooldown already running included. `-1` leaves the table alone, so the game's 3600 or another mod's value stands. Any other number is that many seconds; only `0` has been played. |
 | `Probe` | `0` | Research mode. Hooks every mount-related check and reads the `[sites]`, `[patch]` and `[watch]` sections. The log becomes large. |
 
 `AboveCeiling` and `SummonAnywhere` are research overrides that apply only with
@@ -118,9 +128,9 @@ the plugin scored 0 of 71, the DMM archive 0 of 68 and the full archive 0 of
 66. For 1.1.8 the plugin scored 0 of 71, the DMM archive 0 of 54 and the full
 archive 0 of 68. Nine releases is still a short history, so the figures stay
 here one release at a time instead of collapsing into a single score. 1.1.8
-reports: [the plugin](https://www.virustotal.com/gui/file/f6fd1a2f12c55552ea593a3bee6914d94225ac130a16da094af563d15bd96288),
-[the DMM archive](https://www.virustotal.com/gui/file/f23568f1509c2829b769fe4fde95a899316041e85ffb437779cd4b872166661a) and
-[the full archive](https://www.virustotal.com/gui/file/dd25a8c3e9cb3e3831a1d7963510fdadc37498eed5b402f24cb3fe5d5fb7b885).
+reports: [the plugin](https://www.virustotal.com/gui/file/67e75d77ab36a39d1e40e6196d8956eb92eb76cc0146e5db695191092fe4df20),
+[the DMM archive](https://www.virustotal.com/gui/file/48d75c927e99c1733a2d9510a670f6d6b520df09a842ef6460e878c7af33e39b) and
+[the full archive](https://www.virustotal.com/gui/file/8210552c5ee4eb0ff79e9d7985d2bbfcc0239828e214dad7ecafbc1fb1d821b0).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -140,11 +150,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.8:
+SHA-256 for 1.1.9:
 
-    f23568f1509c2829b769fe4fde95a899316041e85ffb437779cd4b872166661a  FlightFreedom-1.1.8-DMM.zip
-    dd25a8c3e9cb3e3831a1d7963510fdadc37498eed5b402f24cb3fe5d5fb7b885  FlightFreedom-1.1.8.zip
-    f6fd1a2f12c55552ea593a3bee6914d94225ac130a16da094af563d15bd96288  FlightFreedom.asi
+    48d75c927e99c1733a2d9510a670f6d6b520df09a842ef6460e878c7af33e39b  FlightFreedom-1.1.9-DMM.zip
+    8210552c5ee4eb0ff79e9d7985d2bbfcc0239828e214dad7ecafbc1fb1d821b0  FlightFreedom-1.1.9.zip
+    67e75d77ab36a39d1e40e6196d8956eb92eb76cc0146e5db695191092fe4df20  FlightFreedom.asi
 
 ## Building
 

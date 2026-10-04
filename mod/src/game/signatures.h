@@ -252,6 +252,33 @@ namespace fp::sig
     inline constexpr unsigned kOff_StartActionCall_E8 = 0x15;
     inline constexpr uint64_t kAction_MountTakeoff = 0x513043A8;
 
+    // --- Blackstar's summon cooldown (BlackstarCooldown) ---------------------
+    // The one check that refuses a summon with eErrNoCallVehicleCoolTimeExist
+    // (+0x214AB90 on 2.03.02). rcx the mercenary component, rdx the error out,
+    // r8 the mount's key; it returns rdx. It looks the key up in the map at
+    // component+0x18, walks the 0x28-byte cooldown entries at +0x88 (count at
+    // +0x90) for the same key, and refuses while the end time at entry+0x10
+    // is still ahead. The end time is fixed when a cooldown starts, so a
+    // lower _callMercenaryCoolTime does nothing for one already running.
+    // The record the map returns carries the mount's characterinfo key as a
+    // u16 at +0x20, which is the row index the table write finds Blackstar at.
+    //
+    // The whole function, so the three offsets below cannot drift from it.
+    // Unique on 2.03.02.
+    inline constexpr const char* kSig_CoolCheck =
+        "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 "
+        "65 48 8B 04 25 58 00 00 00 49 8B D8 4C 8B 35 ?? ?? ?? ?? 45 33 FF 48 8B F2 48 8B E9 4C 8B 00 "
+        "B8 ?? ?? ?? ?? 46 38 3C 00 4D 0F 45 F7 E8 ?? ?? ?? ?? 48 8D 4D 18 48 8B D3 4C 03 F0 "
+        "E8 ?? ?? ?? ?? 48 85 C0 75 ?? 8B 05 ?? ?? ?? ?? 89 06 EB ?? 0F B7 50 20 4D 8B C6 48 8B CD "
+        "E8 ?? ?? ?? ?? 48 85 C0 75 ?? 8B 8D 90 00 00 00 48 8B 85 88 00 00 00 48 8D 14 89 48 8D 0C D0 "
+        "48 3B C1 74 ?? 48 39 18 74 ?? 48 83 C0 28 48 3B C1 75 F2 44 89 3E 48 8B 5C 24 40 48 8B C6 "
+        "48 8B 74 24 50 48 8B 6C 24 48 48 83 C4 20 41 5F 41 5E 5F C3 48 8B 48 18 48 8B 50 10 48 85 C9 "
+        "74 ?? 48 2B D1 EB ?? 48 8B CA 49 8B C7 49 2B CE 49 3B D6 48 0F 47 C1 48 8B D0 48 85 D2 74 ?? "
+        "8B 05 ?? ?? ?? ?? 89 06";
+    inline constexpr unsigned kOff_CoolCheck_LookupCall = 0x53; // call to the key lookup, rcx component+0x18
+    inline constexpr unsigned kOff_CoolCheck_ErrLoad    = 0xEC; // mov eax,[rip+the cooldown error's global]
+    inline constexpr unsigned kOff_CoolRecord_CharKey   = 0x20; // u16 characterinfo key in the looked-up record
+
     // --- Conditions ---------------------------------------------------------
     // Every ConditionData class ends its vtable with a pair of slots that
     // belong to it alone: a stub returning a wide label, then the condition

@@ -55,6 +55,7 @@ add_library(FlightProbe SHARED
     src/game/conditions.cpp
     src/game/sites.cpp
     src/game/takeoff.cpp
+    src/game/cooldown.cpp
     src/resources.rc
 )
 

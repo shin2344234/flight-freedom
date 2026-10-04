@@ -752,4 +752,63 @@ namespace fp::tables
         }
         return WriteSpawnDuration(star, sb, wb, pick.off, pick.how, value);
     }
+
+    int SetBlackstarCooldown(int64_t value, uint16_t* key)
+    {
+        static Table chr;
+        if (!Resolve(kStr_CharacterTable, chr)) return kNotReady;
+
+        uintptr_t star = 0;
+        char name[96];
+        for (uint32_t r = 0; r < chr.rows && !star; ++r)
+            if (StringKey(chr, r, name, sizeof name) && !strcmp(name, kCharBlackstarKey))
+            {
+                star = DefAt(chr, r);
+                *key = static_cast<uint16_t>(r);
+            }
+        if (!star)
+        {
+            LOG_ERR("[cooldown] characterinfo has %u rows and %s is not among them, so nothing is written.",
+                    chr.rows, kCharBlackstarKey);
+            return -1;
+        }
+
+        // From the loader's code only, never from the values: mod 356 rewrites
+        // Blackstar's 3600 on disk, so a fingerprint on it is one that mod
+        // breaks. The duration is read straight after it, 8 bytes on, and
+        // asking for both catches a walk that found the wrong read.
+        const int off  = LoaderFieldOffset(kStr_CharacterInfoMsg, kField_CallCoolTime);
+        const int next = LoaderFieldOffset(kStr_CharacterInfoMsg, kField_SpawnDuration);
+        if (off < 0 || next != off + 8 || static_cast<unsigned>(off) + 8 > kDefScanBytes)
+        {
+            LOG_ERR("[cooldown] the loader puts %s at %d and %s at %d, which are not the adjacent 8-byte pair they "
+                    "should be, so nothing is written.", kField_CallCoolTime, off, kField_SpawnDuration, next);
+            return -1;
+        }
+
+        int64_t was = 0;
+        if (!ReadI64(star + off, &was))
+        {
+            LOG_ERR("[cooldown] %s could not be read", kCharBlackstarKey);
+            return -1;
+        }
+        if (was == value)
+        {
+            LOG("[cooldown] %s already has a summon cooldown of %lld, so there is nothing to change.",
+                kCharBlackstarKey, static_cast<long long>(value));
+            return 0;
+        }
+        if (!WriteI64(star + off, value))
+        {
+            LOG_ERR("[cooldown] %s could not be written", kCharBlackstarKey);
+            return -1;
+        }
+        int64_t back = -1;
+        ReadI64(star + off, &back);
+        LOG_OK("[cooldown] Blackstar's summon cooldown (%s, record +0x%02X) changed from %lld to %lld seconds "
+               "(read back %lld). A cooldown already running keeps the end time it started with.",
+               kField_CallCoolTime, off, static_cast<long long>(was), static_cast<long long>(value),
+               static_cast<long long>(back));
+        return back == value ? 1 : -1;
+    }
 }

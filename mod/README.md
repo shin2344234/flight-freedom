@@ -4,7 +4,8 @@ Lifts the mount restrictions in Crimson Desert 2.03.02 (exe 1.0.0.2976):
 the 1350 flying ceiling, the region rule that dismounts you at altitude and
 keeps mounts out of listed regions, the "Cannot summon in this area." refusal
 inside the Abyss, the rule that throws you off when you fly low over a
-town, and Blackstar flying away on his own about 30 seconds after he lands.
+town, Blackstar flying away on his own about 30 seconds after he lands, and
+his hour-long summon cooldown.
 
 ## Install
 
@@ -44,6 +45,7 @@ All in `FlightFreedom.ini`, section `[settings]`.
 | `BlockedSummon` | `1` | The summon validator never refuses for something solid close around you. That check is what says "You cannot do that here." on the Abyss Nexus, to every mount. |
 | `TownFlight` | `1` | Flying low over a town off the road never dismounts you. |
 | `BlackstarStays` | `1` | Blackstar stays where you get off it instead of flying away about 30 seconds later. `0` keeps the game's behaviour. |
+| `BlackstarCooldown` | `0` | Blackstar's summon cooldown in seconds, an hour in the game's table. `0` removes it, a cooldown already running included. `-1` leaves the table alone. Any other number is that many seconds; only `0` has been played. |
 | `Probe` | `0` | Research mode. Hooks every mount condition, reads `[sites]`, `[patch]` and `[watch]`, and makes the log large. |
 
 `AboveCeiling` and `SummonAnywhere` are research overrides and only apply
@@ -71,6 +73,19 @@ and it did nothing. With the value at 0 and again at 9,999,999 he left all the
 same. Before that came `LandedTimeout`, which wrote the `vehicleinfo` float
 the game's own loader names `_checkDistanceToGround`. Both are retired, and an
 old number in `BlackstarStays` is read as on.
+
+Blackstar's summon cooldown is `_callMercenaryCoolTime` in `characterinfo`,
+3600 seconds on his row and 300 on the Wyvern's. `BlackstarCooldown` finds the
+field through the game's own table loader, which a data mod editing
+`characterinfo.pabgb` can change the values under but cannot move, and writes
+Blackstar's row only. The radial menu shows a cooldown from that value, so it
+shows him ready at once. The check that actually refuses the summon works from
+an end time the game stores when a cooldown starts, so a cooldown already
+running stays in force after the table changes. With `BlackstarCooldown=0` the
+plugin also hooks that check, and when it refuses Blackstar for a cooldown the
+summon goes through. Any other mount, and any other refusal, gets the game's
+own answer. The check is found by its own bytes, and the record it looks up
+carries the mount's `characterinfo` row, which is how Blackstar is told apart.
 
 Everything else is one routine. Each region in `regioninfo` carries a list
 of mount categories it blocks, and a routine asks whether the region you are
@@ -115,6 +130,9 @@ The hooks and patches are restored when the plugin unloads.
 - `PlatformSummon` is off by default because nobody has played it yet. It is
   read out of the disassembly and one report, and it also allows a summon on
   top of a moving platform anywhere in the game.
+- A `BlackstarCooldown` other than `0` or `-1` has not been played. It is
+  meant to set the length of a cooldown that starts afterwards, and whether
+  the game reads the table at that moment has not been measured.
 - `NoFlyZones=1` removes every region's mount block, not only the Abyss and
   the altitude zones. Towns were never on the list on this build, so nothing
   changes there.

@@ -17,6 +17,7 @@
 #include "game/sites.h"
 #include "game/tables.h"
 #include "game/takeoff.h"
+#include "game/cooldown.h"
 #include "version.h"
 
 namespace
@@ -74,6 +75,9 @@ namespace
         // 1.1.5 this wrote the spawn duration in characterinfo, which was
         // shown to do nothing; any number other than 0 now just means on.
         float blackstarStays;
+        // Blackstar's summon cooldown in seconds; the game's is 3600. -1
+        // leaves whatever the table holds, which may be another mod's value.
+        float blackstarCooldown;
         // Research only, Probe=1. 0 leaves the vehicleinfo 30.0 alone.
         float groundCheck;
         bool  oldLanded;      // an ini still setting the retired LandedTimeout
@@ -92,6 +96,7 @@ namespace
         s.blockedSummon  = ReadSetting(L"BlockedSummon", L"1") != 0.0f;
         s.townFlight     = ReadSetting(L"TownFlight", L"1") != 0.0f;
         s.blackstarStays = ReadSetting(L"BlackstarStays", L"1");
+        s.blackstarCooldown = ReadSetting(L"BlackstarCooldown", L"0");
         s.groundCheck    = ReadSetting(L"GroundCheck", L"0");
         s.oldLanded      = ReadSetting(L"LandedTimeout", L"0") != 0.0f;
         s.aboveCeiling   = ReadSetting(L"AboveCeiling", L"0");
@@ -127,11 +132,11 @@ namespace
         const Settings s = ReadSettings();
 
         LOG("[mod] %s %s for Crimson Desert 2.03.02 (exe 1.0.0.2976). Settings: Ceiling=%s NoFlyZones=%d "
-            "AbyssSummon=%d PlatformSummon=%d BlockedSummon=%d TownFlight=%d BlackstarStays=%d Probe=%d", FP_NAME,
+            "AbyssSummon=%d PlatformSummon=%d BlockedSummon=%d TownFlight=%d BlackstarStays=%d BlackstarCooldown=%d Probe=%d", FP_NAME,
             FP_VERSION, s.ceiling == 0.0f ? "0 (game's own)" : (s.ceiling < 0.0f ? "-1 (none)" : "custom"),
             s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.platformSummon ? 1 : 0, s.blockedSummon ? 1 : 0,
             s.townFlight ? 1 : 0,
-            static_cast<int>(s.blackstarStays), s.probe ? 1 : 0);
+            static_cast<int>(s.blackstarStays), static_cast<int>(s.blackstarCooldown), s.probe ? 1 : 0);
         if (s.oldLanded)
             LOG("[mod] LandedTimeout is set in the ini and is ignored. It never reached a timer: it wrote Blackstar's "
                 "ground-check distance. BlackstarStays replaces it and is on unless set to 0.");
@@ -213,10 +218,35 @@ namespace
                 LOG("[mod] AboveCeiling and SummonAnywhere only apply with Probe=1 and are ignored.");
         }
 
-        int waited = 0, tick = 0;
-        bool reported = false;
+        int waited = 0, tick = 0, coolTries = 0;
+        bool reported = false, coolDone = s.blackstarCooldown < 0.0f;
+        if (coolDone)
+            LOG("[cooldown] BlackstarCooldown is negative, so Blackstar's summon cooldown is left as the table has it.");
+        // A cooldown already running keeps its end time whatever the table
+        // says, so 0 also lets one of those through. Any other number is a
+        // length the player chose, and a running cooldown is left to finish.
+        const bool clearRunning = s.blackstarCooldown == 0.0f && fp::cooldown::Install();
         while (!g_stop.load())
         {
+            // characterinfo is its own table and may land a poll or two after
+            // the other two, so it is asked on each pass until it answers,
+            // for two minutes at most.
+            if (reported && !coolDone)
+            {
+                uint16_t key = 0xFFFF;
+                const int r = fp::tables::SetBlackstarCooldown(static_cast<int64_t>(s.blackstarCooldown), &key);
+                if (r != fp::tables::kNotReady)
+                {
+                    coolDone = true;
+                    if (clearRunning && key != 0xFFFF) fp::cooldown::SetBlackstarKey(key);
+                }
+                else if (++coolTries == 60)   // a pass is 2 seconds
+                {
+                    LOG_ERR("[cooldown] characterinfo was still not loaded after two minutes, so Blackstar keeps "
+                            "the game's summon cooldown this session.");
+                    coolDone = true;
+                }
+            }
             if (!reported)
             {
                 reported = fp::tables::Probe();

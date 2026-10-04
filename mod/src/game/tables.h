@@ -56,6 +56,13 @@ namespace fp::tables
     // data says, which is why the caller chooses.
     int SetBlackstarStays(int64_t value);
 
+    // Blackstar's summon cooldown, characterinfo _callMercenaryCoolTime, 3600
+    // in the game's data. Only Blackstar's row is written. The game stores an
+    // end time when a cooldown starts, so this changes the cooldowns that
+    // start afterwards and not one already running. Same returns as above.
+    // `key` gets Blackstar's characterinfo key whenever his row is found.
+    int SetBlackstarCooldown(int64_t value, uint16_t* key);
+
     // Research output that a release build has no use for: the raw bytes of
     // the two rows the setting compares. On with Probe=1, off otherwise.
     void SetResearchDump(bool on);

@@ -17,7 +17,7 @@
   "url": "https://www.nexusmods.com/crimsondesert/mods/3488",
   "ini": "FlightFreedom.ini",
   "live": false,
-  "description": "Lifts the flying ceiling, the region no-fly list, the Abyss summon refusal and the town dismount in Crimson Desert, and keeps Blackstar from flying off on his own about 30 seconds after landing. Every setting here is read once at startup; a change needs a restart.",
+  "description": "Lifts the flying ceiling, the region no-fly list, the Abyss summon refusal and the town dismount in Crimson Desert, keeps Blackstar from flying off on his own about 30 seconds after landing, and takes away his hour-long summon cooldown. Every setting here is read once at startup; a change needs a restart.",
   "sections": {
     "settings": {
       "label": "Flight Freedom",
@@ -87,6 +87,16 @@
           "help": "Blackstar flies off about 30 seconds after he lands. On, the one action his AI uses to take off is refused and nothing else changes: you can still ride him, and summoning him again still works. Any value other than 0 here means on.",
           "order": 7
         },
+        "BlackstarCooldown": {
+          "label": "Blackstar's summon cooldown",
+          "type": "float",
+          "default": "0",
+          "help": [
+            "Blackstar's summon cooldown in seconds. The game's table gives him 3600, an hour. Only his row is written; every other mount keeps its own cooldown.",
+            "0 removes it. A cooldown that was already running when the game started keeps the end time it began with, so 0 also lets him through the one check that refuses for a cooldown. -1 leaves the table alone, the game's value or another mod's. Any other number is that many seconds for a cooldown that starts afterwards; only 0 has been played."
+          ],
+          "order": 8
+        },
         "Probe": {
           "label": "Research mode",
           "type": "bool",
@@ -95,7 +105,7 @@
           "false": "0",
           "advanced": true,
           "help": "Hooks every mount-related condition and reads the [sites], [patch] and [watch] sections below. Not needed for the mod to work, and the log becomes large.",
-          "order": 8
+          "order": 9
         },
         "AboveCeiling": {
           "label": "Research: allow above a height",
@@ -103,7 +113,7 @@
           "default": "0",
           "advanced": true,
           "help": "Only with Probe on: answers a region refusal above this height as allowed. 0 is off, -1 is any height, a positive number is that height. NoFlyZones on already makes this moot.",
-          "order": 9
+          "order": 10
         },
         "SummonAnywhere": {
           "label": "Research: allow any summon gate",
@@ -113,7 +123,7 @@
           "false": "0",
           "advanced": true,
           "help": "Only with Probe on: answers a refusing summon gate condition as allowed. Not a fix: with a mount already out this forces its ground check to yes and produces \"Cannot summon mount while it's on the ground\".",
-          "order": 10
+          "order": 11
         },
         "GroundCheck": {
           "label": "Research: ground-check distance",
@@ -122,7 +132,7 @@
           "hidden": true,
           "advanced": true,
           "help": "Only with Probe on: overrides the vehicleinfo ground-check distance the game uses. 0 leaves the game's own value alone. Not written into the shipped ini; add the key by hand under [settings] to use it.",
-          "order": 11
+          "order": 12
         },
         "LandedTimeout": {
           "label": "Retired: old Blackstar timer",
@@ -133,7 +143,7 @@
           "hidden": true,
           "readonly": true,
           "help": "Retired in 1.1.6. Up to 1.1.5 this set Blackstar's ground-check distance in characterinfo, which turned out to change nothing about when he takes off. BlackstarStays replaced it. Setting this now only makes the log note that an old value is present; it does nothing else.",
-          "order": 12
+          "order": 13
         }
       }
     },
