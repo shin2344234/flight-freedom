@@ -18,6 +18,10 @@
     "LICENSE",
     "THIRD_PARTY_NOTICES.md"
   ],
+  "dmmZip": [
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
   "gates": [
     {
       "name": "the hook engine passes SitesTest",

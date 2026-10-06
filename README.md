@@ -71,8 +71,8 @@ import table was read and its dependencies' were not.
 loaded the plugin at all.
 
 Definitive Mod Manager users can import the DMM archive instead. It holds the
-plugin alone, which is what DMM registers; every default is compiled in, so it
-is complete without the ini. When the plugin starts and finds no
+plugin with its licence and third-party notices, and DMM registers only the
+plugin. Every default is compiled in, so it is complete without the ini. When the plugin starts and finds no
 `FlightFreedom.ini` beside it, it writes the documented one out, so a DMM
 install still ends up with a file to edit. An ini that is already there is left
 alone.
