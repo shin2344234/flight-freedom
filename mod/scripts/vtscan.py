@@ -1,7 +1,8 @@
 """Look up, and optionally submit, the release files on VirusTotal.
 
     py -3 vtscan.py             report what VirusTotal already knows
-    py -3 vtscan.py --upload    submit anything it has never seen, then wait
+    py -3 vtscan.py --upload    submit anything it has never seen or never
+                                analysed, then wait
     py -3 vtscan.py --prose     also print the paragraphs the README and the
                                 Nexus description want, with the numbers filled in
 
@@ -119,10 +120,28 @@ def score(attrs):
     return hits, total
 
 
+def wait_for(key, aid):
+    """Whether analysis aid completed within twenty minutes."""
+    # Four requests a minute on a free key, so poll gently. An analysis can
+    # read 404: Broomy 1.0.5's requested one did 20 minutes after the request.
+    for _ in range(60):
+        time.sleep(20)
+        an = call(key, "/analyses/" + aid)
+        if an and an["data"]["attributes"].get("status") == "completed":
+            return True
+    return False
+
+
 def report_for(key, path, do_upload):
     digest = sha256(path)
     got = call(key, "/files/" + digest)
-    if got is None:
+    # VirusTotal can hold a file it never analyses. Broomy 1.0.5's plugin was
+    # accepted by an upload on 22 October 2026 and still had no analysis an
+    # hour later, through two /files/<sha256>/analyse requests, the site's
+    # Reanalyze. A second upload of the same file was analysed in two minutes,
+    # so a file in that state is uploaded again.
+    never = got is not None and not got["data"]["attributes"].get("last_analysis_date")
+    if got is None or (never and do_upload):
         if not do_upload:
             return digest, None, "never scanned; run with --upload to submit it"
         size = os.path.getsize(path)
@@ -130,14 +149,7 @@ def report_for(key, path, do_upload):
             return digest, None, "over the 32 MB direct upload limit; needs /files/upload_url"
         body, ctype = multipart(path)
         sub = call(key, "/files", "POST", body, ctype)
-        aid = sub["data"]["id"]
-        # Four requests a minute on a free key, so poll gently.
-        for _ in range(60):
-            time.sleep(20)
-            an = call(key, "/analyses/" + aid)
-            if (an["data"]["attributes"].get("status")) == "completed":
-                break
-        else:
+        if not wait_for(key, sub["data"]["id"]):
             return digest, None, "analysis did not complete in twenty minutes"
         got = call(key, "/files/" + digest)
         if got is None:
@@ -148,7 +160,7 @@ def report_for(key, path, do_upload):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--upload", action="store_true",
-                    help="submit any file VirusTotal has never seen")
+                    help="submit any file VirusTotal has never seen or never analysed")
     ap.add_argument("--prose", action="store_true",
                     help="print the README and description paragraphs")
     ap.add_argument("--version", help="override the version read from version.h")
@@ -179,7 +191,10 @@ def main():
         if total == 0:
             # A fresh upload reads 0/0 until the engines report, which took
             # eight minutes on PSM 1.1.3. That is no result, not a clean one.
-            print("%-34s 0/0  no engine has reported yet; run again in a few minutes" % name)
+            if attrs.get("last_analysis_date"):
+                print("%-34s 0/0  no engine has reported yet; run again in a few minutes" % name)
+            else:
+                print("%-34s 0/0  VirusTotal holds it but never analysed it; run with --upload to send it again" % name)
             print("%-34s %s%s" % ("", GUI, digest))
             rows.append((name, label, digest, None, None))
             continue
