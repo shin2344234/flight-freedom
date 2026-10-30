@@ -48,9 +48,9 @@ file touched and nothing written to a save.
   lets Blackstar through it. Every other mount, and every other reason for a
   refusal, gets the game's answer.
 
-Every patch checks the bytes it is about to change and refuses on any other
-game build, with a line in the log rather than a damaged game. All are restored
-when the plugin unloads.
+Every patch checks the bytes it is about to change and the code around them,
+and refuses on any other game build, with a line in the log rather than a
+damaged game. All are restored when the plugin unloads.
 
 ## Installing
 
@@ -130,9 +130,9 @@ archive 0 of 68. For 1.1.9 the plugin scored 0 of 71 again and both archives
 0 of 68, and 1.1.10 matched that on all three. Eleven releases is still a
 short history, so the figures stay here one
 release at a time instead of collapsing into a single score. 1.1.10 reports:
-[the plugin](https://www.virustotal.com/gui/file/309110ac2f2b87bcec2b4f61ef0cc0bead12d6a32674081f7d77004bcb10df94),
-[the DMM archive](https://www.virustotal.com/gui/file/7dbbe3a00221a9be018e78c5afac279f20035db4ddeb9d3148ec516c274795f2) and
-[the full archive](https://www.virustotal.com/gui/file/d48f57f2081e8ad06805c288f6ff88deea2266c0308be53820af18ae6f08e203).
+[the plugin](https://www.virustotal.com/gui/file/cc6b16f1a963db91b784443160a0093badcf8209fe054b052311506756e713ef),
+[the DMM archive](https://www.virustotal.com/gui/file/ed72711216218ece52899f4349627ece9fe613d8a19e27688e338a292b8d70de) and
+[the full archive](https://www.virustotal.com/gui/file/92c8995447e5a2d1d5e555108dd40af2f8609a6eac7f06afcba2d2432b4d6a4e).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -152,11 +152,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.10:
+SHA-256 for 1.1.11:
 
-    7dbbe3a00221a9be018e78c5afac279f20035db4ddeb9d3148ec516c274795f2  FlightFreedom-1.1.10-DMM.zip
-    d48f57f2081e8ad06805c288f6ff88deea2266c0308be53820af18ae6f08e203  FlightFreedom-1.1.10.zip
-    309110ac2f2b87bcec2b4f61ef0cc0bead12d6a32674081f7d77004bcb10df94  FlightFreedom.asi
+    ed72711216218ece52899f4349627ece9fe613d8a19e27688e338a292b8d70de  FlightFreedom-1.1.11-DMM.zip
+    92c8995447e5a2d1d5e555108dd40af2f8609a6eac7f06afcba2d2432b4d6a4e  FlightFreedom-1.1.11.zip
+    cc6b16f1a963db91b784443160a0093badcf8209fe054b052311506756e713ef  FlightFreedom.asi
 
 ## Building
 
