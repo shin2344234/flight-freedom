@@ -1,6 +1,6 @@
 # Flight Freedom
 
-Lifts the mount restrictions in Crimson Desert 2.03.02 (exe 1.0.0.2976):
+Lifts the mount restrictions in Crimson Desert 2.04.00 (exe 1.0.0.3392):
 the 1350 flying ceiling, the region rule that dismounts you at altitude and
 keeps mounts out of listed regions, the "Cannot summon in this area." refusal
 inside the Abyss, the rule that throws you off when you fly low over a
@@ -41,7 +41,7 @@ All in `FlightFreedom.ini`, section `[settings]`.
 | `Ceiling` | `-1` | The flying ceiling. `0` leaves the game's 1350, `-1` removes it, a number sets it. |
 | `NoFlyZones` | `1` | The region block list answers "not blocked" everywhere. No altitude dismount, no refused ride into a listed region. |
 | `AbyssSummon` | `1` | The summon validator never refuses for the region. Redundant with `NoFlyZones=1`, kept so Abyss summons work with `NoFlyZones=0`. |
-| `PlatformSummon` | `0` | The summon validator never refuses for what you are standing on. That check is what blocks a summon on an Abyss Nexus teleport circle. Off by default, see below. |
+| `PlatformSummon` | `0` | Does nothing on 2.04.00, see below. Kept so an older ini still reads. |
 | `BlockedSummon` | `1` | The summon validator never refuses for something solid close around you. That check is what says "You cannot do that here." on the Abyss Nexus, to every mount. |
 | `TownFlight` | `1` | Flying low over a town off the road never dismounts you. |
 | `BlackstarStays` | `1` | Blackstar stays where you get off it instead of flying away about 30 seconds later. `0` keeps the game's behaviour. |
@@ -96,13 +96,11 @@ inside the Abyss. `NoFlyZones` makes that routine answer "not blocked" with
 a three-byte patch. `AbyssSummon` is a one-byte patch on the validator's
 own branch.
 
-Before the validator reaches the region rule it looks at whatever you are
-standing on, finds that object's row in `gimmickinfo`, and refuses with
-"Cannot summon here." if one flag on the row is set. A Nexus teleport circle
-is such an object and the Abyss floor is not, which is why stepping off the
-circle lets the summon through. `PlatformSummon` turns that branch into a jump
-past the refusal. The flag itself is left alone, so nothing else that reads it
-changes.
+Up to 2.03.02 the validator also looked at whatever you were standing on and
+refused with "Cannot summon here." when its `gimmickinfo` row carried one
+flag. That is what stopped a summon on a Nexus teleport circle, and
+`PlatformSummon` jumped past it. On 2.04.00 the check is gone, and with it
+anything for the setting to patch.
 
 After the region rule the validator checks the space around you. It asks the
 physics scene what overlaps a small box at your feet, and when something
@@ -123,13 +121,10 @@ The hooks and patches are restored when the plugin unloads.
 
 ## Known limits
 
-- Built for 2.03.02 (exe 1.0.0.2976). A patch will not apply on a different
-  build, and the log names each one that refused. The ceiling is found by
-  name and not by address, so it can keep working after an update that stops
-  the patches.
-- `PlatformSummon` is off by default because nobody has played it yet. It is
-  read out of the disassembly and one report, and it also allows a summon on
-  top of a moving platform anywhere in the game.
+- Built for 2.04.00 (exe 1.0.0.3392), the DLC update. A patch will not apply
+  on a different build, and the log names each one that refused. The ceiling
+  is found by name and not by address, so it can keep working after an update
+  that stops the patches.
 - A `BlackstarCooldown` other than `0` or `-1` has not been played. It is
   meant to set the length of a cooldown that starts afterwards, and whether
   the game reads the table at that moment has not been measured.

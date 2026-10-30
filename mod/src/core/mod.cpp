@@ -131,7 +131,7 @@ namespace
         WriteDefaultIni();
         const Settings s = ReadSettings();
 
-        LOG("[mod] %s %s for Crimson Desert 2.03.02 (exe 1.0.0.2976). Settings: Ceiling=%s NoFlyZones=%d "
+        LOG("[mod] %s %s for Crimson Desert 2.04.00 (exe 1.0.0.3392). Settings: Ceiling=%s NoFlyZones=%d "
             "AbyssSummon=%d PlatformSummon=%d BlockedSummon=%d TownFlight=%d BlackstarStays=%d BlackstarCooldown=%d Probe=%d", FP_NAME,
             FP_VERSION, s.ceiling == 0.0f ? "0 (game's own)" : (s.ceiling < 0.0f ? "-1 (none)" : "custom"),
             s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.platformSummon ? 1 : 0, s.blockedSummon ? 1 : 0,
@@ -158,14 +158,11 @@ namespace
                                   fp::sig::kPatch_AbyssSummon.len);
         else
             LOG("[patch] AbyssSummon is 0: the summon validator keeps its region refusal.");
+        // The underfoot check it patched is gone from 2.04.00, so the setting
+        // is read only to say so.
         if (s.platformSummon)
-            fp::sites::ApplyPatch(fp::sig::kPatch_PlatformSummon.name, fp::sig::kPatch_PlatformSummon.rva,
-                                  fp::sig::kPatch_PlatformSummon.orig, fp::sig::kPatch_PlatformSummon.repl,
-                                  fp::sig::kPatch_PlatformSummon.len);
-        else
-            LOG("[patch] PlatformSummon is 0: a summon is still refused while you stand on a flagged "
-                "gimmick. If one is refused with \"Cannot summon here.\" and walking a few paces off "
-                "whatever you are standing on fixes it, this is the setting to try.");
+            LOG("[patch] PlatformSummon is 1 and does nothing on this build: the game no longer refuses a summon "
+                "because of what you are standing on, so there is nothing to patch.");
         if (s.blockedSummon)
             fp::sites::ApplyPatch(fp::sig::kPatch_BlockedSummon.name, fp::sig::kPatch_BlockedSummon.rva,
                                   fp::sig::kPatch_BlockedSummon.orig, fp::sig::kPatch_BlockedSummon.repl,

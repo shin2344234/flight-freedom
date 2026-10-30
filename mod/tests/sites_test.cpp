@@ -14,6 +14,7 @@
 #include "core/log.h"
 #include "core/paths.h"
 #include "game/mem.h"
+#include "game/signatures.h"
 #include "game/sites.h"
 #include "game/tables.h"
 #include "version.h"
@@ -92,7 +93,12 @@ static uint8_t* g_builtinTarget = nullptr;
 // make it ambiguous on purpose.
 static char g_fakeMsgOk[96];
 static char g_fakeMsgTwo[96];
-static uint8_t g_fakeLoader[128];
+static char g_fakeMsgThree[96];
+static uint8_t g_fakeLoader[160];
+// The two reader thunks a loader can call: the 8-byte one the walk wants, and
+// a 4-byte one it has to turn down.
+static uint8_t g_fakeThunk8[16];
+static uint8_t g_fakeThunk4[16];
 
 static void BuildFieldName(char* out, size_t n)
 {
@@ -100,19 +106,37 @@ static void BuildFieldName(char* out, size_t n)
     strcat_s(out, n, "TestField");
 }
 
-// lea rdx,[rsi+off]; mov r8d,8; mov rcx,rdi; call [rax+8]; test al,al; jne
-static size_t EmitRead(uint8_t* p, uint8_t off)
+// mov rax,[rcx]; mov r8d,size; jmp [rax+0x28]
+static void EmitThunk(uint8_t* p, uint8_t size)
 {
-    const uint8_t bytes[] = { 0x48, 0x8D, 0x56, off, 0x41, 0xB8, 0x08, 0x00, 0x00, 0x00,
-                              0x48, 0x8B, 0xCF, 0xFF, 0x50, 0x08, 0x84, 0xC0, 0x75, 0x09 };
+    const uint8_t bytes[] = { 0x48, 0x8B, 0x01, 0x41, 0xB8, size, 0x00, 0x00, 0x00, 0x48, 0xFF, 0x60, 0x28 };
     memcpy(p, bytes, sizeof bytes);
+}
+
+static void PutCall(uint8_t* at, const uint8_t* target)
+{
+    at[0] = 0xE8;
+    const int32_t rel = static_cast<int32_t>(reinterpret_cast<intptr_t>(target) - reinterpret_cast<intptr_t>(at + 5));
+    memcpy(at + 1, &rel, 4);
+}
+
+// lea rdx,[rsi+off]; mov rcx,rdi; call reader; test al,al; jne;
+// xor edx,edx; lea rcx,[rbp+0x20]; call (the error), as 2.04.00 has it
+static size_t EmitRead(uint8_t* p, uint32_t off, const uint8_t* reader)
+{
+    const uint8_t bytes[] = { 0x48, 0x8D, 0x96, 0, 0, 0, 0, 0x48, 0x8B, 0xCF, 0xE8, 0, 0, 0, 0,
+                              0x84, 0xC0, 0x75, 0x17, 0x33, 0xD2, 0x48, 0x8D, 0x4D, 0x20, 0xE8, 0, 0, 0, 0 };
+    memcpy(p, bytes, sizeof bytes);
+    memcpy(p + 3, &off, 4);
+    PutCall(p + 10, reader);
+    PutCall(p + 25, reader);
     return sizeof bytes;
 }
 
-// lea rax,[rip+msg]
+// lea rcx,[rip+msg]
 static size_t EmitMsgLea(uint8_t* p, const char* msg)
 {
-    p[0] = 0x48; p[1] = 0x8D; p[2] = 0x05;
+    p[0] = 0x48; p[1] = 0x8D; p[2] = 0x0D;
     const int32_t rel = static_cast<int32_t>(reinterpret_cast<intptr_t>(msg) - reinterpret_cast<intptr_t>(p + 7));
     memcpy(p + 3, &rel, 4);
     return 7;
@@ -284,25 +308,34 @@ int main()
         BuildFieldName(field, sizeof field);
         snprintf(g_fakeMsgOk, sizeof g_fakeMsgOk, "TestInfo of %s could not be read.", field);
         snprintf(g_fakeMsgTwo, sizeof g_fakeMsgTwo, "TestInfo of %sB could not be read.", field);
+        snprintf(g_fakeMsgThree, sizeof g_fakeMsgThree, "TestInfo of %sC could not be read.", field);
+        EmitThunk(g_fakeThunk8, 8);
+        EmitThunk(g_fakeThunk4, 4);
 
         uint8_t* p = g_fakeLoader;
-        p += EmitRead(p, 0x78);
-        p += EmitMsgLea(p, g_fakeMsgOk);
-        Check(fp::tables::LoaderFieldOffset("TestInfo", field) == 0x78, "the read in front of the message names the offset");
+        p += EmitRead(p, 0x160, g_fakeThunk8);
+        EmitMsgLea(p, g_fakeMsgOk);
+        Check(fp::tables::LoaderFieldOffset("TestInfo", field) == 0x160, "the read in front of the message names the offset");
 
-        // The nearest read is the field before this one, with its own call to
-        // the reader still in the gap. Two calls, so the offset is not this
-        // field's and nothing is returned.
+        // The same shape through the reader for a 4-byte field: whatever the
+        // offset is, it is not an 8-byte field's.
         uint8_t* q = g_fakeLoader + 48;
-        size_t n = EmitRead(q, 0x70);
-        memset(q + n, 0x90, 10);
-        const uint8_t tail[] = { 0xFF, 0x50, 0x08, 0x84, 0xC0, 0x75, 0x09 };
-        memcpy(q + n + 10, tail, sizeof tail);
-        EmitMsgLea(q + n + 10 + sizeof tail, g_fakeMsgTwo);
+        EmitMsgLea(q + EmitRead(q, 0x158, g_fakeThunk4), g_fakeMsgTwo);
         char fieldB[64];
         snprintf(fieldB, sizeof fieldB, "%sB", field);
-        Check(fp::tables::LoaderFieldOffset("TestInfo", fieldB) == -1, "a read behind a second call to the reader is refused");
-        Check(CountLines("calls to the reader") >= 1, "the refusal said why");
+        Check(fp::tables::LoaderFieldOffset("TestInfo", fieldB) == -1, "a read through another reader is refused");
+        Check(CountLines("other than the 8-byte reader") >= 1, "the refusal said why");
+
+        // Something between the read and the message load means the read is
+        // not this message's.
+        uint8_t* r = g_fakeLoader + 96;
+        const size_t n = EmitRead(r, 0x168, g_fakeThunk8);
+        r[n] = 0x90;
+        EmitMsgLea(r + n + 1, g_fakeMsgThree);
+        char fieldC[64];
+        snprintf(fieldC, sizeof fieldC, "%sC", field);
+        Check(fp::tables::LoaderFieldOffset("TestInfo", fieldC) == -1, "a read that does not end at the message is refused");
+        Check(CountLines("no field read in front of it") >= 1, "that refusal said why");
 
         Check(fp::tables::LoaderFieldOffset("TestInfo", "_noSuchFieldAnywhere") == -1, "a field with no message is refused");
     }
@@ -315,10 +348,10 @@ int main()
     {
         struct Row
         {
-            uint8_t b[0x100] = {};
+            uint8_t b[0x200] = {};
             void Put(unsigned off, int64_t v) { memcpy(b + off, &v, sizeof v); }
         };
-        const unsigned cool = 0x70, dur = 0x78, decoy = 0x40;
+        const unsigned cool = fp::sig::kOff_Char_CallCoolTime, dur = fp::sig::kOff_Char_SpawnDuration, decoy = 0x40;
         auto pick = [&](const Row& s, const Row& w) {
             return fp::tables::PickSpawnDuration(s.b, w.b, sizeof s.b);
         };
@@ -344,7 +377,7 @@ int main()
             s.Put(cool, 0); w.Put(cool, 0);           // and with those gone, the loader's offset does
             Check(pick(s, w).off == (int)dur, "the loader's offset breaks the tie the cooldowns cannot");
 
-            s.Put(dur, 0); s.Put(0x88, 600); w.Put(0x88, 0);
+            s.Put(dur, 0); s.Put(0x188, 600); w.Put(0x188, 0);
             Check(pick(s, w).off == -1, "two offsets and no way to choose writes nothing");
         }
         {   // already at 0, and nothing to go on at all

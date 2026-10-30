@@ -1,6 +1,6 @@
 # Flight Freedom
 
-Removes the flying ceiling and the no-fly zones in Crimson Desert 2.03.02, lets
+Removes the flying ceiling and the no-fly zones in Crimson Desert 2.04.00, lets
 a mount be summoned inside the Abyss, stops towns throwing you off in the air,
 keeps Blackstar where you leave him, and takes away his hour-long summon
 cooldown.
@@ -87,7 +87,7 @@ below is also the plugin's own.
 | `Ceiling` | `-1` | `-1` no ceiling, `0` the game's 1350, or a height of your own. |
 | `NoFlyZones` | `1` | `1` means no region blocks any mount. |
 | `AbyssSummon` | `1` | `1` means the summon check never refuses for the region. |
-| `PlatformSummon` | `0` | `1` means the summon check never refuses for what you are standing on, which is what stops a summon on an Abyss Nexus circle. Off by default: read out of the disassembly and one report, not played yet. |
+| `PlatformSummon` | `0` | Does nothing on 2.04.00. The game no longer refuses a summon for what you are standing on, so there is nothing left to patch. The setting stays so an older ini still reads. |
 | `BlockedSummon` | `1` | `1` means the summon check never refuses for something solid close around you, which is what says "You cannot do that here." on the Abyss Nexus, to the Wyvern as well. |
 | `TownFlight` | `1` | `1` means flying low over a town off the road never dismounts you. |
 | `BlackstarStays` | `1` | Blackstar stays where you get off it instead of flying away about 30 seconds later. `0` keeps the game's behaviour. In 1.1.5 this changed his spawn duration, which did nothing, and an old number left here is read as `1`. `LandedTimeout` is retired and ignored. |

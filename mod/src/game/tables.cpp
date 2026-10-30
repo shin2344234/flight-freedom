@@ -236,37 +236,32 @@ namespace
     }
 
     // The 8-byte field read that belongs to the message loaded at `lea`: the
-    // nearest one behind it, and only if it is the read this message reports
-    // on, which means exactly one call to the reader between the two. Returns
-    // the record offset or -1, with `why` set for the log either way.
+    // read, its test and the error setup in one fixed shape that ends exactly
+    // where the message is loaded, with the call landing on the thunk that
+    // reads 8 bytes. Returns the record offset or -1, with `why` set for the
+    // log either way.
     int ReadBeforeMessage(uintptr_t lea, const char** why, uintptr_t* readAt)
     {
-        int off = -1;
-        uintptr_t read = 0;
-        for (uintptr_t p = lea - 1; p + kMax_ReadToMessage >= lea; --p)
-        {
-            if (fp::mem::MatchAt(p, kSig_FieldRead8))
-            {
-                uint8_t d = 0;
-                if (fp::mem::Read8(p + 3, &d)) { off = d; read = p; }
-                break;
-            }
-            if (fp::mem::MatchAt(p, kSig_FieldRead32))
-            {
-                uint32_t d = 0;
-                if (fp::mem::Read32(p + 3, &d)) { off = static_cast<int>(d); read = p; }
-                break;
-            }
-        }
-        if (off < 0) { *why = "no 8-byte field read in front of it"; return -1; }
+        const uintptr_t read = lea - kLen_FieldReadCall;
+        if (!fp::mem::MatchAt(read, kSig_FieldReadCall)) { *why = "no field read in front of it"; return -1; }
 
-        int calls = 0;
-        for (uintptr_t p = read; p < lea; ++p)
-            if (fp::mem::MatchAt(p, kSig_CallReader)) ++calls;
-        if (calls != 1) { *why = "the wrong number of calls to the reader between the read and the message"; return -1; }
+        uint32_t d = 0;
+        int32_t rel = 0;
+        if (!fp::mem::Read32(read + kOff_FieldReadCall_Disp, &d) || d >= 0x10000
+            || !fp::mem::ReadBytes(read + kOff_FieldReadCall_E8 + 1, &rel, sizeof rel))
+        {
+            *why = "a field read that could not be decoded";
+            return -1;
+        }
+        const uintptr_t reader = read + kOff_FieldReadCall_E8 + 5 + rel;
+        if (!fp::mem::MatchAt(reader, kSig_ReaderThunk8))
+        {
+            *why = "a read through something other than the 8-byte reader";
+            return -1;
+        }
         *why = "";
         *readAt = read;
-        return off;
+        return static_cast<int>(d);
     }
 
     int64_t I64At(const uint8_t* rec, unsigned off)
@@ -442,8 +437,11 @@ namespace fp::tables
             const int off = FindU8Offset(recs, 1, w.count);
             if (off < 0)
             {
-                LOG_ERR("[table] no byte in a regioninfo record is set on exactly %u rows, so %s was not located. "
-                        "The file data for this build says it should be.", w.count, w.name);
+                // Research only, and counted on 2.03.02's file data. The DLC
+                // build has not had its regioninfo counted, and nothing the
+                // mod changes depends on these, so a miss is not an error.
+                LOG("[table] no byte in a regioninfo record is set on exactly %u rows, so %s was not located. "
+                    "Only the research notes use it.", w.count, w.name);
                 continue;
             }
             LOG_OK("[table] %s is record +0x%03X: set on exactly %u rows.", w.name, off, w.count);

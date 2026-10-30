@@ -17,6 +17,7 @@ namespace fp::cooldown
         CheckFn   g_original  = nullptr;
         LookupFn  g_lookup    = nullptr;
         uintptr_t g_errGlobal = 0;
+        unsigned  g_charKeyOff = 0;
         volatile long g_key = -1;
         volatile long g_passed = 0;
         volatile ULONGLONG g_lastLog = 0;
@@ -30,7 +31,7 @@ namespace fp::cooldown
 
             const uintptr_t rec = g_lookup(static_cast<char*>(component) + 0x18, mount);
             uint16_t chr = 0;
-            if (!mem::Plausible(rec) || !mem::Read16(rec + sig::kOff_CoolRecord_CharKey, &chr) || chr != key)
+            if (!mem::Plausible(rec) || !mem::Read16(rec + g_charKeyOff, &chr) || chr != key)
                 return out;
 
             *out = 0;
@@ -62,6 +63,16 @@ namespace fp::cooldown
         }
         g_lookup    = reinterpret_cast<LookupFn>(mem::RipAt(entry + sig::kOff_CoolCheck_LookupCall, 5));
         g_errGlobal = mem::RipAt(entry + sig::kOff_CoolCheck_ErrLoad, 6);
+        // Where the looked-up record keeps the mount's characterinfo key, as
+        // the check itself reads it. +0x20 up to 2.03.02, +0x24 on 2.04.00.
+        uint8_t keyOff = 0;
+        if (!mem::Read8(entry + sig::kOff_CoolCheck_CharKeyDisp, &keyOff))
+        {
+            LOG_ERR("[cooldown] the cooldown check at +0x%llX could not be read, so nothing is hooked.",
+                    static_cast<unsigned long long>(mem::Rva(entry)));
+            return false;
+        }
+        g_charKeyOff = keyOff;
         if (!mem::InImage(reinterpret_cast<uintptr_t>(g_lookup)) || !mem::InImage(g_errGlobal))
         {
             LOG_ERR("[cooldown] the cooldown check at +0x%llX does not lead where it should, so nothing is hooked.",
@@ -77,9 +88,9 @@ namespace fp::cooldown
                     "still has to run out.", static_cast<unsigned long long>(mem::Rva(entry)), why);
             return false;
         }
-        LOG_OK("[cooldown] summon cooldown check hooked at +0x%llX. Once characterinfo is read, a cooldown on "
-               "Blackstar no longer refuses a summon, including one that started before this session.",
-               static_cast<unsigned long long>(mem::Rva(entry)));
+        LOG_OK("[cooldown] summon cooldown check hooked at +0x%llX, mount key at record +0x%02X. Once "
+               "characterinfo is read, a cooldown on Blackstar no longer refuses a summon, including one that "
+               "started before this session.", static_cast<unsigned long long>(mem::Rva(entry)), g_charKeyOff);
         return true;
     }
 }

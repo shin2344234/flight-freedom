@@ -1,30 +1,35 @@
 #pragma once
 #include <cstdint>
 
-// Byte patterns, offsets and RTTI names for Crimson Desert 2.03.02
-// (exe 1.0.0.2976). Everything here is lifted from Master Looter's
+// Byte patterns, offsets and RTTI names for Crimson Desert 2.04.00
+// (exe 1.0.0.3392, the DLC build). Everything here is lifted from Master Looter's
 // signatures.h except the condition names, which came out of the flight
 // research in private/FEASIBILITY.md.
 namespace fp::sig
 {
     // --- Static data tables -------------------------------------------------
     // Table resolvers are clones of one template, told apart by the
-    // `lea r8, [rip+"<tablename>"]` inside them. The prologue below is the
-    // 16-bit-key flavour, which both vehicleinfo and regioninfo use (every key
-    // in both fits in a u16).
+    // `lea r8, [rip+"<tablename>"]` inside them. On 2.04.00 every resolver
+    // takes its row by value in edx and sets up its frame through r11, and
+    // three of them (characterinfo among them) sit in another section with
+    // other encodings of `mov r11,rsp` and `mov edi,edx`, so those two are
+    // left open. Up to 2.03.02 the prologue was
+    // `48 89 5C 24 10 48 89 6C 24 18 56 57 41 56 48 83 EC ?? 0F B7 39 48 8B 1D`
+    // and the key came in as a pointer to a u16.
     inline constexpr const char* kSig_LeaR8Rip = "4C 8D 05 ?? ?? ?? ??";
     inline constexpr const char* kSig_TableResolver16 =
-        "48 89 5C 24 10 48 89 6C 24 18 56 57 41 56 48 83 EC ?? 0F B7 39 48 8B 1D";
+        "?? ?? ?? 49 89 5B 08 49 89 6B 18 56 57 41 56 48 83 EC ?? ?? ?? 48 8B 1D";
     inline constexpr unsigned kOff_TableResolver_MovGlobal = 0x15; // `mov rbx, cs:<table global>`
     inline constexpr unsigned kMax_LeaToPrologue = 0x180;
 
     // Table object: u32 row count at +0x08, def[] pointer at +0x50 or +0x58
     // depending on build. Both are tried and whichever yields readable string
-    // keys wins. A def's _stringKey is an engine string at +0x08.
+    // keys wins. A def's _stringKey is an engine string at +0x00 on 2.04.00,
+    // where the record head became name then key; it was +0x08 before.
     inline constexpr unsigned kOff_Table_Count   = 0x08;
     inline constexpr unsigned kOff_Table_DefsA   = 0x58;
     inline constexpr unsigned kOff_Table_DefsB   = 0x50;
-    inline constexpr unsigned kOff_Def_StringKey = 0x08;
+    inline constexpr unsigned kOff_Def_StringKey = 0x00;
 
     inline constexpr const char* kStr_VehicleTable = "vehicleinfo";
     inline constexpr const char* kStr_RegionTable  = "regioninfo";
@@ -63,7 +68,8 @@ namespace fp::sig
     // --- Blackstar's spawn duration -----------------------------------------
     // A called mount stays out for characterinfo _callMercenarySpawnDuration,
     // read by the loader right after _callMercenaryCoolTime; both are 8 bytes,
-    // at +0x70 and +0x78 of the record on 2.03.00. Riding_Dragon_1 (Blackstar)
+    // at +0x70 and +0x78 of the record on 2.03.00 and +0x158 and +0x160 on
+    // 2.04.00. Riding_Dragon_1 (Blackstar)
     // carries a cooldown of 3600 and a duration of 600. Riding_Wyvern_1000
     // carries 300 and 0, and the Wyvern is the mount that never leaves, so 0
     // is the value that means no limit. The same four numbers were there on
@@ -84,34 +90,48 @@ namespace fp::sig
     inline constexpr int64_t     kBlackstarSpawnDuration  = 600;
     inline constexpr int64_t     kWyvernCallCoolTime      = 300;
     inline constexpr int64_t     kWyvernSpawnDuration     = 0;
-    inline constexpr unsigned    kOff_Char_SpawnDuration  = 0x78; // what the loader writes on 2.03.00; the last tiebreak, never the first test
-    inline constexpr unsigned    kOff_Char_CallCoolTime   = 0x70; // the field ahead of it, read back into failure logs
+    inline constexpr unsigned    kOff_Char_SpawnDuration  = 0x160; // what the loader writes on 2.04.00; the last tiebreak, never the first test
+    inline constexpr unsigned    kOff_Char_CallCoolTime   = 0x158; // the field ahead of it, read back into failure logs
 
     // --- Naming a field out of the loader's own code ------------------------
     // The table loader reads one field at a time and raises
     // "<Table>의 <_field>를 읽어들이는데 실패했다." when a read fails. That is
     // how these two fields were named in the first place, and doing it at
     // runtime instead of in a disassembler is the one way of finding the
-    // offset that a mod editing characterinfo.pabgb cannot reach. On 2.03.00:
+    // offset that a mod editing characterinfo.pabgb cannot reach. On 2.04.00
+    // the loader no longer reads inline. It calls a small thunk that sets the
+    // size and jumps to the stream's reader, and the message is loaded into
+    // rcx on the failure path:
     //
-    //     0x14F04DE  48 8D 56 78           lea  rdx, [rsi+0x78]   the offset
-    //     0x14F04E2  41 B8 08 00 00 00     mov  r8d, 8            the size
-    //     0x14F04E8  48 8B CF              mov  rcx, rdi
-    //     0x14F04EB  FF 50 08              call qword ptr [rax+8] the reader
-    //     0x14F04EE  84 C0                 test al, al
-    //     0x14F04F0  75 09                 jne  short ok
-    //     0x14F04F2  48 8D 05 ...          lea  rax, [rip+message]
+    //     0x16F43A3  48 8D 96 58 01 00 00  lea  rdx, [rsi+0x158]  the offset
+    //     0x16F43AA  48 8B CF              mov  rcx, rdi
+    //     0x16F43AD  E8 ...                call the 8-byte reader thunk
+    //     0x16F43B2  84 C0                 test al, al
+    //     0x16F43B4  75 17                 jne  short ok
+    //     0x16F43B6  33 D2                 xor  edx, edx
+    //     0x16F43B8  48 8D 4D 20           lea  rcx, [rbp+0x20]
+    //     0x16F43BC  E8 ...                call (builds the error)
+    //     0x16F43C1  48 8D 0D ...          lea  rcx, [rip+message]
     //
-    // The message is found first and the read is walked back to, because the
-    // message is the part that names the field. What sits between the two
-    // varies: _callMercenaryCoolTime at +0x70 has two unrelated instructions
-    // in the gap, which is why the walk back takes the nearest read and then
-    // insists on exactly one call to the reader between it and the message.
+    //     0x15FC660  48 8B 01 41 B8 08 00 00 00 48 FF 60 28
+    //                mov rax,[rcx]; mov r8d,8; jmp [rax+0x28]   the thunk
+    //
+    // The message is found first and the read is taken from the fixed shape
+    // that ends at its load, because the message is the part that names the
+    // field. The thunk is what makes it an 8-byte field: its `mov r8d,8` is
+    // the size, so the call has to land on it. A field read through any other
+    // thunk, or a load with anything else in front of it, gives no offset.
+    //
+    // Up to 2.03.02 the read was inline, `lea rdx,[rsi+off]; mov r8d,8; ...;
+    // call [rax+8]`, with the message loaded into rax; that shape is gone from
+    // this loader.
     inline constexpr const char* kSig_LeaRip      = "48 8D ?? ?? ?? ?? ??";
-    inline constexpr const char* kSig_FieldRead8  = "48 8D 56 ?? 41 B8 08 00 00 00";
-    inline constexpr const char* kSig_FieldRead32 = "48 8D 96 ?? ?? ?? ?? 41 B8 08 00 00 00";
-    inline constexpr const char* kSig_CallReader  = "FF 50 08";
-    inline constexpr unsigned    kMax_ReadToMessage = 0x40;
+    inline constexpr const char* kSig_FieldReadCall =
+        "48 8D 96 ?? ?? ?? ?? 48 8B CF E8 ?? ?? ?? ?? 84 C0 75 ?? 33 D2 48 8D 4D ?? E8 ?? ?? ?? ??";
+    inline constexpr unsigned    kOff_FieldReadCall_Disp  = 0x03; // the record offset, a dword
+    inline constexpr unsigned    kOff_FieldReadCall_E8    = 0x0A; // the call to the reader thunk
+    inline constexpr unsigned    kLen_FieldReadCall       = 0x1E; // the message load follows at once
+    inline constexpr const char* kSig_ReaderThunk8 = "48 8B 01 41 B8 08 00 00 00 48 FF 60 ??";
     inline constexpr const char* kStr_CharacterInfoMsg = "CharacterInfo";
     inline constexpr const char* kField_SpawnDuration  = "_callMercenarySpawnDuration";
     inline constexpr const char* kField_CallCoolTime   = "_callMercenaryCoolTime";
@@ -159,9 +179,17 @@ namespace fp::sig
     // region routine still has exactly two direct callers, and conditioninfo,
     // vehicleinfo, characterinfo and regioninfo are byte for byte the 2.03.01
     // files.
+    //
+    // Moved for 2.04.00 (exe 1.0.0.3392, the DLC build) on 29 October 2026,
+    // from the RTTI names and the error globals each branch writes. NoFlyZones
+    // is +0x18A81E0 and TownFlight +0x2435570, same bytes. Slot 41 shrank and
+    // the region and overlap checks are in its second function, +0xAE1560:
+    // AbyssSummon +0xAE16B1 and BlockedSummon +0xAE17E0, each with a new jump
+    // distance because the error out moved from r14 to rsi. The underfoot
+    // check that PlatformSummon patched is gone from the game.
     struct BytePatch { const char* name; uintptr_t rva; const uint8_t* orig; const uint8_t* repl; unsigned len; };
 
-    // +0x1778BE0 answers whether any region the actor stands in, or a parent
+    // +0x18A81E0 answers whether any region the actor stands in, or a parent
     // of it, lists the mount's category in its block list. It has exactly two
     // callers: the summon validator (ClientMercenaryClanActorComponent slot
     // 41) and ConditionData_IsVehicleAllowedInEnteredRegion, which is what
@@ -169,56 +197,41 @@ namespace fp::sig
     // region. `xor eax,eax; ret` makes it say "not blocked" to both.
     inline constexpr uint8_t kNoFlyZones_Orig[] = { 0x48, 0x89, 0x5C };  // mov [rsp+8], rbx
     inline constexpr uint8_t kNoFlyZones_Repl[] = { 0x31, 0xC0, 0xC3 };  // xor eax,eax; ret
-    inline constexpr BytePatch kPatch_NoFlyZones = { "NoFlyZones", 0x1778BE0, kNoFlyZones_Orig, kNoFlyZones_Repl, 3 };
+    inline constexpr BytePatch kPatch_NoFlyZones = { "NoFlyZones", 0x18A81E0, kNoFlyZones_Orig, kNoFlyZones_Repl, 3 };
 
-    // +0x9DD8F9 is the `je` in the validator that skips writing
+    // +0xAE16B1 is the `je` in the validator that skips writing
     // eErrNoCallVehicleMercenaryRegion ("Cannot summon in this area.") when
     // the routine above says the region does not block. Made unconditional,
     // so the summon side is covered even with NoFlyZones off.
-    inline constexpr uint8_t kAbyssSummon_Orig[] = { 0x74, 0x75 };       // je +0x75
-    inline constexpr uint8_t kAbyssSummon_Repl[] = { 0xEB, 0x75 };       // jmp +0x75
-    inline constexpr BytePatch kPatch_AbyssSummon = { "AbyssSummon", 0x9DD8F9, kAbyssSummon_Orig, kAbyssSummon_Repl, 2 };
+    inline constexpr uint8_t kAbyssSummon_Orig[] = { 0x74, 0x7D };       // je +0x7D
+    inline constexpr uint8_t kAbyssSummon_Repl[] = { 0xEB, 0x7D };       // jmp +0x7D
+    inline constexpr BytePatch kPatch_AbyssSummon = { "AbyssSummon", 0xAE16B1, kAbyssSummon_Orig, kAbyssSummon_Repl, 2 };
 
-    // +0x9DD6A6 is the `je` in the validator body that skips writing
-    // eErrNoCallVehicleMercenaryMovableNavigation ("Cannot summon here.") when
-    // whatever the player is standing on carries no flag. The chain above it
-    // reads transform+0x408 for the id of the thing underfoot (+0x3F4 on
-    // 2.02.00; the transform grew), resolves that actor through
-    // ClientActorManager slot 5 (+0x8AE140), takes its gimmick key from +0x48
-    // and tests byte +0x169 of the gimmickinfo row that +0x3885B0 resolves.
-    // Three branches already fall through to the allowed path at +0x9DD6D6:
-    // nothing underfoot, no key, flag clear. This makes the
-    // fourth fall through with them, and both paths run the same release on
-    // the way out, so the refcounting is unchanged.
-    //
-    // The check sits ahead of the region check in the same validator, which is
-    // what NumboOne0990 is describing when he says 1.1.0 lets him summon on the
-    // Abyss floor but not while standing on a Nexus teleport circle. The circle
-    // is a placed gimmick and the floor is not. That is a reading of the code
-    // and of one report, not a measurement, which is why the setting is off
-    // until somebody has played it.
-    //
-    // The flag itself is left alone, so every other reader of it behaves as it
-    // did and only the summon validator stops asking. The cost is that a mount
-    // can then be summoned onto a moving platform anywhere in the game.
-    inline constexpr uint8_t kPlatformSummon_Orig[] = { 0x74, 0x2E };   // je +0x2E
-    inline constexpr uint8_t kPlatformSummon_Repl[] = { 0xEB, 0x2E };   // jmp +0x2E
-    inline constexpr BytePatch kPatch_PlatformSummon = { "PlatformSummon", 0x9DD6A6, kPlatformSummon_Orig, kPlatformSummon_Repl, 2 };
+    // PlatformSummon patched a `je` in the validator body (+0x9DD6A6 on
+    // 2.03.02) that skipped writing eErrNoCallVehicleMercenaryMovableNavigation
+    // ("Cannot summon here.") when whatever the player stood on carried no
+    // flag: transform+0x408 named the thing underfoot, and byte +0x169 of its
+    // gimmickinfo row was the flag. It was NumboOne0990's Nexus teleport
+    // circle. On 2.04.00 that block is gone from the validator and nothing in
+    // the game reads the error's global any more, so there is no site and the
+    // setting does nothing.
 
-    // After the region check the validator calls +0x39A730 (at +0x9DDA0B),
+    // After the region check the validator calls +0x3EB260 (at +0xAE17D3),
     // which puts a small box around the player, asks the physics scene what
     // overlaps it and, if any hit passes +0x711C40, writes
-    // eErrNoInvalidPositionForAction ("You cannot do that here."). +0x9DDA18
-    // is the `je` that skips the refusal when nothing was in the way. Seth,
+    // eErrNoInvalidPositionForAction ("You cannot do that here."). +0xAE17E0
+    // is the `je` that skips the refusal when nothing was in the way. On
+    // 2.04.00 the helper can raise that error on five paths instead of one,
+    // and this `je` tests its result after all of them. Seth,
     // 2 October 2026: standing on the Abyss Nexus with NoFlyZones,
     // AbyssSummon and the platform check passed, the Wyvern was still refused
-    // with exactly that line. The helper's two other callers (+0x50ABB0,
-    // +0xA9A860) are left alone.
-    inline constexpr uint8_t kBlockedSummon_Orig[] = { 0x74, 0x36 };     // je +0x36
-    inline constexpr uint8_t kBlockedSummon_Repl[] = { 0xEB, 0x36 };     // jmp +0x36
-    inline constexpr BytePatch kPatch_BlockedSummon = { "BlockedSummon", 0x9DDA18, kBlockedSummon_Orig, kBlockedSummon_Repl, 2 };
+    // with exactly that line. The helper's two other callers (+0x5BF244,
+    // +0xBA3369) are left alone.
+    inline constexpr uint8_t kBlockedSummon_Orig[] = { 0x74, 0x35 };     // je +0x35
+    inline constexpr uint8_t kBlockedSummon_Repl[] = { 0xEB, 0x35 };     // jmp +0x35
+    inline constexpr BytePatch kPatch_BlockedSummon = { "BlockedSummon", 0xAE17E0, kBlockedSummon_Orig, kBlockedSummon_Repl, 2 };
 
-    // +0x2267C70 is ConditionData_IsAboveRoad's condition slot. It reads the
+    // +0x2435570 is ConditionData_IsAboveRoad's condition slot. It reads the
     // road type and radius baked into the condition object, asks the actor's
     // navigation component, and inverts the answer. Exactly one conditioninfo
     // row uses it, out of 10,798 on 2.03.00 and 10,785 on 2.02.00: row
@@ -229,22 +242,27 @@ namespace fp::sig
     // escalation and trade pricing.
     inline constexpr uint8_t kTownFlight_Orig[] = { 0x48, 0x83, 0xEC };  // sub rsp, 0x28
     inline constexpr uint8_t kTownFlight_Repl[] = { 0x31, 0xC0, 0xC3 };  // xor eax,eax; ret
-    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x2267C70, kTownFlight_Orig, kTownFlight_Repl, 3 };
+    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x2435570, kTownFlight_Orig, kTownFlight_Repl, 3 };
 
     // --- Blackstar's takeoff (BlackstarStays) --------------------------------
-    // Every action an AI chart starts goes through one function (+0x21C0990
-    // on 2.03.02, +0x21C0940 on 2.03.01, +0x21C0930 on 2.03.00). It takes the actor's navigation
+    // Every action an AI chart starts goes through one function (+0x2387B10
+    // on 2.04.00, +0x21C0990 on 2.03.02, +0x21C0940 on 2.03.01, +0x21C0930 on
+    // 2.03.00). It takes the actor's navigation
     // component in rcx and the request in r9, and the request's first qword
     // is the action's hash. A landed mount starts 0x31D37232, and 30.03 s
     // later its chart starts 0x513043A8 and it flies off; the same two hashes
     // appeared in every session measured on 21 September 2026. Refusing the
     // second is what keeps Blackstar on the ground.
     //
-    // Found by its entry: three null checks on the request, then a flag test
-    // on what it points at. Unique on 2.03.01 and 2.03.02.
+    // Found by its entry: the prologue and the first null checks on the
+    // request. 2.04.00 rewrote the flag test that follows them and loads the
+    // request's second qword into rdx where it used rax, so the pattern stops
+    // before the test and leaves that register open. Unique on 2.03.02 and
+    // 2.04.00. The detour reads only [r9] and the prologue is the same 15
+    // bytes on both.
     inline constexpr const char* kSig_StartAction =
-        "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 50 49 8B 41 08 49 8B D9 49 8B F0 48 8B F9 "
-        "48 85 C0 74 ?? 49 83 79 10 00 74 ?? 49 83 79 18 00 74 ?? 49 8B 49 18 F6 81 0E 01 00 00 10";
+        "48 89 5C 24 08 48 89 74 24 10 57 48 83 EC 50 49 8B ?? 08 49 8B D9 49 8B F0 48 8B F9 "
+        "48 85 ?? 74 ?? 49 83 79 10 00 74";
     // Its one caller, in the chart's node runner, which loads rcx from
     // [[[actor+8]+0x68]+0x1A8] and calls it. Used to confirm the entry.
     inline constexpr const char* kSig_StartActionCall =
@@ -254,22 +272,26 @@ namespace fp::sig
 
     // --- Blackstar's summon cooldown (BlackstarCooldown) ---------------------
     // The one check that refuses a summon with eErrNoCallVehicleCoolTimeExist
-    // (+0x214AB90 on 2.03.02). rcx the mercenary component, rdx the error out,
+    // (+0x230BF60 on 2.04.00, +0x214AB90 on 2.03.02). rcx the mercenary component, rdx the error out,
     // r8 the mount's key; it returns rdx. It looks the key up in the map at
     // component+0x18, walks the 0x28-byte cooldown entries at +0x88 (count at
     // +0x90) for the same key, and refuses while the end time at entry+0x10
     // is still ahead. The end time is fixed when a cooldown starts, so a
     // lower _callMercenaryCoolTime does nothing for one already running.
     // The record the map returns carries the mount's characterinfo key as a
-    // u16 at +0x20, which is the row index the table write finds Blackstar at.
+    // u16, which is the row index the table write finds Blackstar at. It was
+    // at +0x20 up to 2.03.02 and is at +0x24 on 2.04.00, so the offset is read
+    // out of the check's own `movzx edx, word [rax+off]` rather than written
+    // here: a hook that compared the wrong u16 would install cleanly and never
+    // let a cooldown through.
     //
-    // The whole function, so the three offsets below cannot drift from it.
-    // Unique on 2.03.02.
+    // The whole function, so the offsets below cannot drift from it. Unique on
+    // 2.03.02 and 2.04.00.
     inline constexpr const char* kSig_CoolCheck =
         "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 41 56 41 57 48 83 EC 20 "
         "65 48 8B 04 25 58 00 00 00 49 8B D8 4C 8B 35 ?? ?? ?? ?? 45 33 FF 48 8B F2 48 8B E9 4C 8B 00 "
         "B8 ?? ?? ?? ?? 46 38 3C 00 4D 0F 45 F7 E8 ?? ?? ?? ?? 48 8D 4D 18 48 8B D3 4C 03 F0 "
-        "E8 ?? ?? ?? ?? 48 85 C0 75 ?? 8B 05 ?? ?? ?? ?? 89 06 EB ?? 0F B7 50 20 4D 8B C6 48 8B CD "
+        "E8 ?? ?? ?? ?? 48 85 C0 75 ?? 8B 05 ?? ?? ?? ?? 89 06 EB ?? 0F B7 50 ?? 4D 8B C6 48 8B CD "
         "E8 ?? ?? ?? ?? 48 85 C0 75 ?? 8B 8D 90 00 00 00 48 8B 85 88 00 00 00 48 8D 14 89 48 8D 0C D0 "
         "48 3B C1 74 ?? 48 39 18 74 ?? 48 83 C0 28 48 3B C1 75 F2 44 89 3E 48 8B 5C 24 40 48 8B C6 "
         "48 8B 74 24 50 48 8B 6C 24 48 48 83 C4 20 41 5F 41 5E 5F C3 48 8B 48 18 48 8B 50 10 48 85 C9 "
@@ -277,7 +299,7 @@ namespace fp::sig
         "8B 05 ?? ?? ?? ?? 89 06";
     inline constexpr unsigned kOff_CoolCheck_LookupCall = 0x53; // call to the key lookup, rcx component+0x18
     inline constexpr unsigned kOff_CoolCheck_ErrLoad    = 0xEC; // mov eax,[rip+the cooldown error's global]
-    inline constexpr unsigned kOff_CoolRecord_CharKey   = 0x20; // u16 characterinfo key in the looked-up record
+    inline constexpr unsigned kOff_CoolCheck_CharKeyDisp = 0x6A; // disp8 of `movzx edx, word [rax+off]`, the record's u16 characterinfo key
 
     // --- Conditions ---------------------------------------------------------
     // Every ConditionData class ends its vtable with a pair of slots that
