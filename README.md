@@ -119,17 +119,18 @@ the trampoline's relocation is covered.
 
 Nothing has been flagged yet. For 1.1.0 the plugin scored 0 of 66 on
 VirusTotal, the DMM archive 0 of 66 and the full archive 0 of 68. All three
-1.1.1 files scored 0 of 68. For 1.1.2 the plugin scored 0 of 70, the DMM archive
-0 of 67 and the full archive 0 of 68. For 1.1.3 the plugin scored 0 of 70 and
-both archives 0 of 68. For 1.1.4 and again for 1.1.5 the plugin scored 0 of 70,
-the DMM archive 0 of 68 and the full archive 0 of 67. For 1.1.6 the plugin
-scored 0 of 71, the DMM archive 0 of 67 and the full archive 0 of 68. For 1.1.7
-the plugin scored 0 of 71, the DMM archive 0 of 68 and the full archive 0 of
-66. For 1.1.8 the plugin scored 0 of 71, the DMM archive 0 of 54 and the full
-archive 0 of 68. For 1.1.9 the plugin scored 0 of 71 again and both archives
-0 of 68, and 1.1.10 matched that on all three. Eleven releases is still a
-short history, so the figures stay here one
-release at a time instead of collapsing into a single score. 1.1.10 reports:
+1.1.1 files scored 0 of 68. For 1.1.2 the plugin scored 0 of 70, the DMM
+archive 0 of 67 and the full archive 0 of 68. For 1.1.3 the plugin scored 0 of
+70 and both archives 0 of 68. For 1.1.4 and again for 1.1.5 the plugin scored 0
+of 70, the DMM archive 0 of 68 and the full archive 0 of 67. For 1.1.6 the
+plugin scored 0 of 71, the DMM archive 0 of 67 and the full archive 0 of 68.
+For 1.1.7 the plugin scored 0 of 71, the DMM archive 0 of 68 and the full
+archive 0 of 66. For 1.1.8 the plugin scored 0 of 71, the DMM archive 0 of 54
+and the full archive 0 of 68. For 1.1.9 the plugin scored 0 of 71 again and
+both archives 0 of 68, and 1.1.10 matched that on all three. For 1.1.11 the
+plugin scored 0 of 71, the DMM archive 0 of 64 and the full archive 0 of 65.
+Twelve releases is still a short history, so the figures stay here one release
+at a time instead of collapsing into a single score. 1.1.11 reports:
 [the plugin](https://www.virustotal.com/gui/file/cc6b16f1a963db91b784443160a0093badcf8209fe054b052311506756e713ef),
 [the DMM archive](https://www.virustotal.com/gui/file/ed72711216218ece52899f4349627ece9fe613d8a19e27688e338a292b8d70de) and
 [the full archive](https://www.virustotal.com/gui/file/92c8995447e5a2d1d5e555108dd40af2f8609a6eac7f06afcba2d2432b4d6a4e).
