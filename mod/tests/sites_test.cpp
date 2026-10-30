@@ -230,7 +230,9 @@ int main()
         const uint8_t orig[2] = { 0x74, 0x75 }, repl[2] = { 0xEB, 0x75 }, wrong[2] = { 0x11, 0x22 };
         const uintptr_t r = rva(const_cast<const uint8_t*>(target));
         Check(!fp::sites::ApplyPatch("builtin", r, wrong, repl, 2) && target[0] == 0x74, "built-in patch refuses when the original bytes differ");
-        Check(fp::sites::ApplyPatch("builtin", r, orig, repl, 2) && target[0] == 0xEB && target[1] == 0x75, "built-in patch writes when the original bytes match");
+        Check(!fp::sites::ApplyPatch("builtin", r, orig, repl, 2, "74 75 CC") && target[0] == 0x74, "built-in patch refuses when the code around it differs");
+        Check(CountLines("the code around it is not what") == 1, "the context refusal was logged");
+        Check(fp::sites::ApplyPatch("builtin", r, orig, repl, 2, "74 75 ?? 90") && target[0] == 0xEB && target[1] == 0x75, "built-in patch writes when the original bytes and the code around them match");
         Check(fp::sites::ApplyPatch("builtin", r, orig, repl, 2) && CountLines("already reads") == 1, "built-in patch is a no-op when already applied");
         Check(CountLines("not the bytes this build should have") == 1, "the refusal was logged");
         g_builtinTarget = const_cast<uint8_t*>(target);

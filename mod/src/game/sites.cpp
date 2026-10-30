@@ -794,7 +794,8 @@ namespace
 
 namespace fp::sites
 {
-    bool ApplyPatch(const char* name, uintptr_t rva, const uint8_t* orig, const uint8_t* repl, unsigned n)
+    bool ApplyPatch(const char* name, uintptr_t rva, const uint8_t* orig, const uint8_t* repl, unsigned n,
+                    const char* ctx, unsigned ctxBack)
     {
         if (g_np >= kMaxPatches || n > 32) { LOG_ERR("[patch] %s: no room", name); return false; }
         const uintptr_t at = mem::Game().base + rva;
@@ -817,6 +818,15 @@ namespace fp::sites
         {
             LOG_ERR("[patch] %s at +0x%llX reads %s, not the bytes this build should have there. Either the game was updated "
                     "or another mod changed the same place; nothing written", name, static_cast<unsigned long long>(rva), have);
+            return false;
+        }
+        // Three bytes of a prologue are in thousands of functions, so the code
+        // around the site has to match as well. 1.1.10 patched an unrelated
+        // function on exe 3446 for want of this.
+        if (ctx && !mem::MatchAt(at - ctxBack, ctx))
+        {
+            LOG_ERR("[patch] %s at +0x%llX reads %s, but the code around it is not what this build should have there. "
+                    "The game was most likely updated; nothing written", name, static_cast<unsigned long long>(rva), have);
             return false;
         }
         Patch& pa = g_patches[g_np];

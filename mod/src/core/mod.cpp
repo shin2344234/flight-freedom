@@ -131,7 +131,7 @@ namespace
         WriteDefaultIni();
         const Settings s = ReadSettings();
 
-        LOG("[mod] %s %s for Crimson Desert 2.04.00 (exe 1.0.0.3424). Settings: Ceiling=%s NoFlyZones=%d "
+        LOG("[mod] %s %s for Crimson Desert 2.04.02 (exe 1.0.0.3446). Settings: Ceiling=%s NoFlyZones=%d "
             "AbyssSummon=%d PlatformSummon=%d BlockedSummon=%d TownFlight=%d BlackstarStays=%d BlackstarCooldown=%d Probe=%d", FP_NAME,
             FP_VERSION, s.ceiling == 0.0f ? "0 (game's own)" : (s.ceiling < 0.0f ? "-1 (none)" : "custom"),
             s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.platformSummon ? 1 : 0, s.blockedSummon ? 1 : 0,
@@ -148,14 +148,14 @@ namespace
         if (s.noFlyZones)
             fp::sites::ApplyPatch(fp::sig::kPatch_NoFlyZones.name, fp::sig::kPatch_NoFlyZones.rva,
                                   fp::sig::kPatch_NoFlyZones.orig, fp::sig::kPatch_NoFlyZones.repl,
-                                  fp::sig::kPatch_NoFlyZones.len);
+                                  fp::sig::kPatch_NoFlyZones.len, fp::sig::kPatch_NoFlyZones.ctx, fp::sig::kPatch_NoFlyZones.ctxBack);
         else
             LOG("[patch] NoFlyZones is 0: regions keep their block lists, so a flyer can still be dismounted "
                 "where the game lists its mount, and a ride into such a region is still refused.");
         if (s.abyssSummon)
             fp::sites::ApplyPatch(fp::sig::kPatch_AbyssSummon.name, fp::sig::kPatch_AbyssSummon.rva,
                                   fp::sig::kPatch_AbyssSummon.orig, fp::sig::kPatch_AbyssSummon.repl,
-                                  fp::sig::kPatch_AbyssSummon.len);
+                                  fp::sig::kPatch_AbyssSummon.len, fp::sig::kPatch_AbyssSummon.ctx, fp::sig::kPatch_AbyssSummon.ctxBack);
         else
             LOG("[patch] AbyssSummon is 0: the summon validator keeps its region refusal.");
         // The underfoot check it patched is gone from 2.04.00, so the setting
@@ -166,14 +166,14 @@ namespace
         if (s.blockedSummon)
             fp::sites::ApplyPatch(fp::sig::kPatch_BlockedSummon.name, fp::sig::kPatch_BlockedSummon.rva,
                                   fp::sig::kPatch_BlockedSummon.orig, fp::sig::kPatch_BlockedSummon.repl,
-                                  fp::sig::kPatch_BlockedSummon.len);
+                                  fp::sig::kPatch_BlockedSummon.len, fp::sig::kPatch_BlockedSummon.ctx, fp::sig::kPatch_BlockedSummon.ctxBack);
         else
             LOG("[patch] BlockedSummon is 0: a summon is still refused with \"You cannot do that here.\" when "
                 "something solid is close around you, as on the Abyss Nexus.");
         if (s.townFlight)
             fp::sites::ApplyPatch(fp::sig::kPatch_TownFlight.name, fp::sig::kPatch_TownFlight.rva,
                                   fp::sig::kPatch_TownFlight.orig, fp::sig::kPatch_TownFlight.repl,
-                                  fp::sig::kPatch_TownFlight.len);
+                                  fp::sig::kPatch_TownFlight.len, fp::sig::kPatch_TownFlight.ctx, fp::sig::kPatch_TownFlight.ctxBack);
         else
             LOG("[patch] TownFlight is 0: flying low over a town off the road will dismount you, which is "
                 "the game's own behaviour.");

@@ -38,10 +38,12 @@ namespace fp::sites
     void Remove();
 
     // Write `n` bytes at image+rva, only if the bytes there are exactly
-    // `orig` (or already `repl`, in which case nothing is written). Logged
+    // `orig` (or already `repl`, in which case nothing is written) and, when
+    // `ctx` is given, that pattern matches at image+rva-ctxBack. Logged
     // either way; restored on Remove(). Returns true when the bytes are in
     // place afterwards.
-    bool ApplyPatch(const char* name, uintptr_t rva, const uint8_t* orig, const uint8_t* repl, unsigned n);
+    bool ApplyPatch(const char* name, uintptr_t rva, const uint8_t* orig, const uint8_t* repl, unsigned n,
+                    const char* ctx = nullptr, unsigned ctxBack = 0);
     void Tick();       // watches; call from the mod thread
     void Summarise();  // call counts; call from the mod thread
 }
