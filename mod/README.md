@@ -121,8 +121,9 @@ The hooks and patches are restored when the plugin unloads.
 
 ## Known limits
 
-- Built for 2.04.00 (exe 1.0.0.3424), the DLC update's first hotfix. A patch will not apply
-  on a different build, and the log names each one that refused. The ceiling
+- Built for 2.04.00 (exe 1.0.0.3424), the DLC update's first hotfix. A patch
+  will not apply on a different build, and the log names each one that
+  refused. The ceiling
   is found by name and not by address, so it can keep working after an update
   that stops the patches.
 - A `BlackstarCooldown` other than `0` or `-1` has not been played. It is

@@ -128,10 +128,10 @@ the plugin scored 0 of 71, the DMM archive 0 of 68 and the full archive 0 of
 66. For 1.1.8 the plugin scored 0 of 71, the DMM archive 0 of 54 and the full
 archive 0 of 68. For 1.1.9 the plugin scored 0 of 71 again and both archives
 0 of 68. Ten releases is still a short history, so the figures stay here one
-release at a time instead of collapsing into a single score. 1.1.9 reports:
-[the plugin](https://www.virustotal.com/gui/file/67e75d77ab36a39d1e40e6196d8956eb92eb76cc0146e5db695191092fe4df20),
-[the DMM archive](https://www.virustotal.com/gui/file/48d75c927e99c1733a2d9510a670f6d6b520df09a842ef6460e878c7af33e39b) and
-[the full archive](https://www.virustotal.com/gui/file/8210552c5ee4eb0ff79e9d7985d2bbfcc0239828e214dad7ecafbc1fb1d821b0).
+release at a time instead of collapsing into a single score. 1.1.10 reports:
+[the plugin](https://www.virustotal.com/gui/file/309110ac2f2b87bcec2b4f61ef0cc0bead12d6a32674081f7d77004bcb10df94),
+[the DMM archive](https://www.virustotal.com/gui/file/7dbbe3a00221a9be018e78c5afac279f20035db4ddeb9d3148ec516c274795f2) and
+[the full archive](https://www.virustotal.com/gui/file/d48f57f2081e8ad06805c288f6ff88deea2266c0308be53820af18ae6f08e203).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -151,11 +151,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.9:
+SHA-256 for 1.1.10:
 
-    48d75c927e99c1733a2d9510a670f6d6b520df09a842ef6460e878c7af33e39b  FlightFreedom-1.1.9-DMM.zip
-    8210552c5ee4eb0ff79e9d7985d2bbfcc0239828e214dad7ecafbc1fb1d821b0  FlightFreedom-1.1.9.zip
-    67e75d77ab36a39d1e40e6196d8956eb92eb76cc0146e5db695191092fe4df20  FlightFreedom.asi
+    7dbbe3a00221a9be018e78c5afac279f20035db4ddeb9d3148ec516c274795f2  FlightFreedom-1.1.10-DMM.zip
+    d48f57f2081e8ad06805c288f6ff88deea2266c0308be53820af18ae6f08e203  FlightFreedom-1.1.10.zip
+    309110ac2f2b87bcec2b4f61ef0cc0bead12d6a32674081f7d77004bcb10df94  FlightFreedom.asi
 
 ## Building
 
