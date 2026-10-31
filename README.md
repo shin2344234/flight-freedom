@@ -131,9 +131,9 @@ both archives 0 of 68, and 1.1.10 matched that on all three. For 1.1.11 the
 plugin scored 0 of 71, the DMM archive 0 of 64 and the full archive 0 of 65.
 Twelve releases is still a short history, so the figures stay here one release
 at a time instead of collapsing into a single score. 1.1.11 reports:
-[the plugin](https://www.virustotal.com/gui/file/cc6b16f1a963db91b784443160a0093badcf8209fe054b052311506756e713ef),
-[the DMM archive](https://www.virustotal.com/gui/file/ed72711216218ece52899f4349627ece9fe613d8a19e27688e338a292b8d70de) and
-[the full archive](https://www.virustotal.com/gui/file/92c8995447e5a2d1d5e555108dd40af2f8609a6eac7f06afcba2d2432b4d6a4e).
+[the plugin](https://www.virustotal.com/gui/file/aa7b057205787a28bbaf5b4e63e67a565246a600f7fb7056495c32fc206283b1),
+[the DMM archive](https://www.virustotal.com/gui/file/6b1461ef4986b95fe4791e6df394e7abacf70c2b61ae42012b275c43b5c5f32d) and
+[the full archive](https://www.virustotal.com/gui/file/94ccfd7e5702993e7fa2c32adc1c56ce9c2f319c885fbe0f27a24070a2716981).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -153,11 +153,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.11:
+SHA-256 for 1.1.12:
 
-    ed72711216218ece52899f4349627ece9fe613d8a19e27688e338a292b8d70de  FlightFreedom-1.1.11-DMM.zip
-    92c8995447e5a2d1d5e555108dd40af2f8609a6eac7f06afcba2d2432b4d6a4e  FlightFreedom-1.1.11.zip
-    cc6b16f1a963db91b784443160a0093badcf8209fe054b052311506756e713ef  FlightFreedom.asi
+    6b1461ef4986b95fe4791e6df394e7abacf70c2b61ae42012b275c43b5c5f32d  FlightFreedom-1.1.12-DMM.zip
+    94ccfd7e5702993e7fa2c32adc1c56ce9c2f319c885fbe0f27a24070a2716981  FlightFreedom-1.1.12.zip
+    aa7b057205787a28bbaf5b4e63e67a565246a600f7fb7056495c32fc206283b1  FlightFreedom.asi
 
 ## Building
 
