@@ -1,6 +1,6 @@
 # Flight Freedom
 
-Removes the flying ceiling and the no-fly zones in Crimson Desert 2.04.02, lets
+Removes the flying ceiling and the no-fly zones in Crimson Desert 2.04.03, lets
 a mount be summoned inside the Abyss, stops towns throwing you off in the air,
 keeps Blackstar where you leave him, and takes away his hour-long summon
 cooldown.
