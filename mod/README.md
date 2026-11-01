@@ -1,6 +1,6 @@
 # Flight Freedom
 
-Lifts the mount restrictions in Crimson Desert 2.04.04 (exe 1.0.0.3462):
+Lifts the mount restrictions in Crimson Desert 2.04.05 (exe 1.0.0.3479):
 the 1350 flying ceiling, the region rule that dismounts you at altitude and
 keeps mounts out of listed regions, the "Cannot summon in this area." refusal
 inside the Abyss, the rule that throws you off when you fly low over a
@@ -121,7 +121,7 @@ The hooks and patches are restored when the plugin unloads.
 
 ## Known limits
 
-- Built for 2.04.04 (exe 1.0.0.3462), the DLC update's fourth hotfix. A
+- Built for 2.04.05 (exe 1.0.0.3479), the DLC update's fifth hotfix. A
   patch will not apply on a different build, and the log names each one that
   refused. The ceiling
   is found by name and not by address, so it can keep working after an update
