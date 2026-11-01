@@ -1,8 +1,8 @@
 #pragma once
 #include <cstdint>
 
-// Byte patterns, offsets and RTTI names for Crimson Desert 2.04.03
-// (exe 1.0.0.3460, the DLC build's third hotfix). Everything here is lifted from Master Looter's
+// Byte patterns, offsets and RTTI names for Crimson Desert 2.04.04
+// (exe 1.0.0.3462, the DLC build's fourth hotfix). Everything here is lifted from Master Looter's
 // signatures.h except the condition names, which came out of the flight
 // research in private/FEASIBILITY.md.
 namespace fp::sig
@@ -205,12 +205,17 @@ namespace fp::sig
     // AbyssSummon +0xAE2981 and BlockedSummon +0xAE2AB0, TownFlight +0x243B130
     // (forward 0x3780). The 1.1.11 addresses read other bytes there and refuse.
     //
+    // Exe 1.0.0.3462 (Steam build 26356046, 2.04.04) on 1 November 2026 left
+    // NoFlyZones, AbyssSummon and BlockedSummon where 3460 had them and moved
+    // TownFlight to +0x243B440 (forward 0x310), same bytes and context. 1.1.12
+    // refuses TownFlight there and applies the other three.
+    //
     // That update showed what three original bytes are worth. On 3446,
     // +0x18A9440 is the start of an unrelated function that also opens with
     // `48 89 5C`, so 1.1.10 wrote `xor eax,eax; ret` over it. Each patch now
     // also carries `ctx`, a pattern over the code around the site that has to
     // match before anything is written, starting `ctxBack` bytes before it.
-    // Every ctx matches once in the image on 3424, 3446 and 3460, at the site,
+    // Every ctx matches once in the image on 3424, 3446, 3460 and 3462, at the site,
     // and nowhere at the old addresses.
     struct BytePatch
     {
@@ -270,7 +275,7 @@ namespace fp::sig
     inline constexpr BytePatch kPatch_BlockedSummon = { "BlockedSummon", 0xAE2AB0, kBlockedSummon_Orig, kBlockedSummon_Repl, 2,
                                                         kBlockedSummon_Ctx, 13 };
 
-    // +0x243B130 is ConditionData_IsAboveRoad's condition slot. It reads the
+    // +0x243B440 is ConditionData_IsAboveRoad's condition slot. It reads the
     // road type and radius baked into the condition object, asks the actor's
     // navigation component, and inverts the answer. Exactly one conditioninfo
     // row uses it, out of 10,798 on 2.03.00 and 10,785 on 2.02.00: row
@@ -283,12 +288,12 @@ namespace fp::sig
     inline constexpr uint8_t kTownFlight_Repl[] = { 0x31, 0xC0, 0xC3 };  // xor eax,eax; ret
     inline constexpr const char* kTownFlight_Ctx =
         "48 83 EC 28 48 8B 82 28 08 00 00 4C 8B C1 48 8B 48 68 C4 C1 7A 10 50 1C 41 0F B6 50 18";
-    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x243B130, kTownFlight_Orig, kTownFlight_Repl, 3,
+    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x243B440, kTownFlight_Orig, kTownFlight_Repl, 3,
                                                      kTownFlight_Ctx, 0 };
 
     // --- Blackstar's takeoff (BlackstarStays) --------------------------------
-    // Every action an AI chart starts goes through one function (+0x238D680
-    // on exe 3460, +0x2389F50 on 3446, +0x2388DA0 on 3424, +0x2387B10 on 3392, +0x21C0990 on 2.03.02, +0x21C0940 on 2.03.01, +0x21C0930 on
+    // Every action an AI chart starts goes through one function (+0x238D990
+    // on exe 3462, +0x238D680 on 3460, +0x2389F50 on 3446, +0x2388DA0 on 3424, +0x2387B10 on 3392, +0x21C0990 on 2.03.02, +0x21C0940 on 2.03.01, +0x21C0930 on
     // 2.03.00). It takes the actor's navigation
     // component in rcx and the request in r9, and the request's first qword
     // is the action's hash. A landed mount starts 0x31D37232, and 30.03 s
@@ -314,7 +319,7 @@ namespace fp::sig
 
     // --- Blackstar's summon cooldown (BlackstarCooldown) ---------------------
     // The one check that refuses a summon with eErrNoCallVehicleCoolTimeExist
-    // (+0x2311A80 on exe 3460, +0x230E390 on 3446, +0x230D1E0 on 3424, +0x230BF60 on 3392, +0x214AB90 on 2.03.02). rcx the mercenary component, rdx the error out,
+    // (+0x2311D90 on exe 3462, +0x2311A80 on 3460, +0x230E390 on 3446, +0x230D1E0 on 3424, +0x230BF60 on 3392, +0x214AB90 on 2.03.02). rcx the mercenary component, rdx the error out,
     // r8 the mount's key; it returns rdx. It looks the key up in the map at
     // component+0x18, walks the 0x28-byte cooldown entries at +0x88 (count at
     // +0x90) for the same key, and refuses while the end time at entry+0x10
