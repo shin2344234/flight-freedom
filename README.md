@@ -132,9 +132,9 @@ plugin scored 0 of 71, the DMM archive 0 of 64 and the full archive 0 of 65.
 For 1.1.12 the plugin scored 0 of 70 and both archives 0 of 68. Thirteen
 releases is still a short history, so the figures stay here one release at a
 time instead of collapsing into a single score. 1.1.12 reports:
-[the plugin](https://www.virustotal.com/gui/file/aa7b057205787a28bbaf5b4e63e67a565246a600f7fb7056495c32fc206283b1),
-[the DMM archive](https://www.virustotal.com/gui/file/6b1461ef4986b95fe4791e6df394e7abacf70c2b61ae42012b275c43b5c5f32d) and
-[the full archive](https://www.virustotal.com/gui/file/94ccfd7e5702993e7fa2c32adc1c56ce9c2f319c885fbe0f27a24070a2716981).
+[the plugin](https://www.virustotal.com/gui/file/19aa0252bc833462564423228b66fbc14c4b45877221a7af8cbacd394ba7f1a5),
+[the DMM archive](https://www.virustotal.com/gui/file/59560787967a9b0bcecf2793f6fde9b689310a0506b589c5b81b516c21422d4e) and
+[the full archive](https://www.virustotal.com/gui/file/b35269896cddb3550f944f31e4ed06c4354bc9c913f317d19226f878b1d4c51d).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -154,11 +154,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.12:
+SHA-256 for 1.1.13:
 
-    6b1461ef4986b95fe4791e6df394e7abacf70c2b61ae42012b275c43b5c5f32d  FlightFreedom-1.1.12-DMM.zip
-    94ccfd7e5702993e7fa2c32adc1c56ce9c2f319c885fbe0f27a24070a2716981  FlightFreedom-1.1.12.zip
-    aa7b057205787a28bbaf5b4e63e67a565246a600f7fb7056495c32fc206283b1  FlightFreedom.asi
+    59560787967a9b0bcecf2793f6fde9b689310a0506b589c5b81b516c21422d4e  FlightFreedom-1.1.13-DMM.zip
+    b35269896cddb3550f944f31e4ed06c4354bc9c913f317d19226f878b1d4c51d  FlightFreedom-1.1.13.zip
+    19aa0252bc833462564423228b66fbc14c4b45877221a7af8cbacd394ba7f1a5  FlightFreedom.asi
 
 ## Building
 
