@@ -134,9 +134,9 @@ For 1.1.12 the plugin scored 0 of 70 and both archives 0 of 68. 1.1.13 got
 and 1.1.14 matched it on all three. Fifteen releases is still a short history,
 so the figures stay here one release at a time instead of collapsing into a
 single score. 1.1.14 reports:
-[the plugin](https://www.virustotal.com/gui/file/455523e388d4b5d8d722f581a120ec426aab38d7bb299f208dbcf3b54bad33fa),
-[the DMM archive](https://www.virustotal.com/gui/file/9c987420c3ec5622d080550eaa256f093c7640fa8d6fa5438e8192d04d059b52) and
-[the full archive](https://www.virustotal.com/gui/file/78a599df66e09506c7764fe74d4415fe41e359f9107c92b5df07f22256cde471).
+[the plugin](https://www.virustotal.com/gui/file/79425e214824d3f421413913f9df26611295ade91ac2debd758c414c5f5f6c74),
+[the DMM archive](https://www.virustotal.com/gui/file/7a80a80c2aea3c3a5b33ccc207eb15d2473e9bdc5eda49933a29e163b3be9bc4) and
+[the full archive](https://www.virustotal.com/gui/file/af40259196763fe0095ca90b16303d1df59080f17874f8d4a3b3a8ff7e68280f).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -156,11 +156,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.14:
+SHA-256 for 1.1.15:
 
-    9c987420c3ec5622d080550eaa256f093c7640fa8d6fa5438e8192d04d059b52  FlightFreedom-1.1.14-DMM.zip
-    78a599df66e09506c7764fe74d4415fe41e359f9107c92b5df07f22256cde471  FlightFreedom-1.1.14.zip
-    455523e388d4b5d8d722f581a120ec426aab38d7bb299f208dbcf3b54bad33fa  FlightFreedom.asi
+    7a80a80c2aea3c3a5b33ccc207eb15d2473e9bdc5eda49933a29e163b3be9bc4  FlightFreedom-1.1.15-DMM.zip
+    af40259196763fe0095ca90b16303d1df59080f17874f8d4a3b3a8ff7e68280f  FlightFreedom-1.1.15.zip
+    79425e214824d3f421413913f9df26611295ade91ac2debd758c414c5f5f6c74  FlightFreedom.asi
 
 ## Building
 
