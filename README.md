@@ -1,6 +1,6 @@
 # Flight Freedom
 
-Removes the flying ceiling and the no-fly zones in Crimson Desert 2.04.05, lets
+Removes the flying ceiling and the no-fly zones in Crimson Desert 2.04.06, lets
 a mount be summoned inside the Abyss, stops towns throwing you off in the air,
 keeps Blackstar where you leave him, and takes away his hour-long summon
 cooldown.
@@ -135,9 +135,9 @@ and 1.1.14 matched it on all three. 1.1.15 scored 0 of 70 on the plugin
 and 0 of 68 on both archives. Sixteen releases is still a short history, so
 the figures stay here one release at a time instead of collapsing into a
 single score. 1.1.15 reports:
-[the plugin](https://www.virustotal.com/gui/file/79425e214824d3f421413913f9df26611295ade91ac2debd758c414c5f5f6c74),
-[the DMM archive](https://www.virustotal.com/gui/file/7a80a80c2aea3c3a5b33ccc207eb15d2473e9bdc5eda49933a29e163b3be9bc4) and
-[the full archive](https://www.virustotal.com/gui/file/af40259196763fe0095ca90b16303d1df59080f17874f8d4a3b3a8ff7e68280f).
+[the plugin](https://www.virustotal.com/gui/file/0e6eb0785ba89d0a0f4220ba1c89311329164d5cb7ce55d4c55dcd97bfb1c338),
+[the DMM archive](https://www.virustotal.com/gui/file/c5d1a1664168184f5b21403c09b75ae23bc384e2f5a65e421395d84f2358a981) and
+[the full archive](https://www.virustotal.com/gui/file/517750fcd03a1dbce6762cec1c2418b917ab5d9dea656c8a9e6eecfca6489234).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -157,11 +157,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.15:
+SHA-256 for 1.1.16:
 
-    7a80a80c2aea3c3a5b33ccc207eb15d2473e9bdc5eda49933a29e163b3be9bc4  FlightFreedom-1.1.15-DMM.zip
-    af40259196763fe0095ca90b16303d1df59080f17874f8d4a3b3a8ff7e68280f  FlightFreedom-1.1.15.zip
-    79425e214824d3f421413913f9df26611295ade91ac2debd758c414c5f5f6c74  FlightFreedom.asi
+    c5d1a1664168184f5b21403c09b75ae23bc384e2f5a65e421395d84f2358a981  FlightFreedom-1.1.16-DMM.zip
+    517750fcd03a1dbce6762cec1c2418b917ab5d9dea656c8a9e6eecfca6489234  FlightFreedom-1.1.16.zip
+    0e6eb0785ba89d0a0f4220ba1c89311329164d5cb7ce55d4c55dcd97bfb1c338  FlightFreedom.asi
 
 ## Building
 

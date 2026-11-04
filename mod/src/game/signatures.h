@@ -1,8 +1,8 @@
 #pragma once
 #include <cstdint>
 
-// Byte patterns, offsets and RTTI names for Crimson Desert 2.04.05
-// (exe 1.0.0.3479, the DLC build's fifth hotfix). Everything here is lifted from Master Looter's
+// Byte patterns, offsets and RTTI names for Crimson Desert 2.04.06
+// (exe 1.0.0.3527, the DLC build's sixth hotfix). Everything here is lifted from Master Looter's
 // signatures.h except the condition names, which came out of the flight
 // research in private/FEASIBILITY.md.
 namespace fp::sig
@@ -216,12 +216,19 @@ namespace fp::sig
     // BlockedSummon +0xAE2A80, TownFlight +0x243B3F0 (back 0x50). 1.1.13
     // reads other bytes at its addresses and refuses all four.
     //
+    // Exe 1.0.0.3527 (Steam build 26423880, 2.04.06) on 4 November 2026
+    // rebuilt the exe and moved all four forward by different amounts, same
+    // bytes and context: NoFlyZones +0x18AE890 (forward 0x17C0), validator2
+    // +0xAE3B20 (forward 0x1320) so AbyssSummon +0xAE3C71 and BlockedSummon
+    // +0xAE3DA0, TownFlight +0x243ED30 (forward 0x3940). 1.1.15 refuses all
+    // four there.
+    //
     // That update showed what three original bytes are worth. On 3446,
     // +0x18A9440 is the start of an unrelated function that also opens with
     // `48 89 5C`, so 1.1.10 wrote `xor eax,eax; ret` over it. Each patch now
     // also carries `ctx`, a pattern over the code around the site that has to
     // match before anything is written, starting `ctxBack` bytes before it.
-    // Every ctx matches once in the image on 3424, 3446, 3460, 3462 and 3479, at the site,
+    // Every ctx matches once in the image on 3424, 3446, 3460, 3462, 3479 and 3527, at the site,
     // and nowhere at the old addresses.
     struct BytePatch
     {
@@ -229,7 +236,7 @@ namespace fp::sig
         const char* ctx; unsigned ctxBack;
     };
 
-    // +0x18AD0D0 answers whether any region the actor stands in, or a parent
+    // +0x18AE890 answers whether any region the actor stands in, or a parent
     // of it, lists the mount's category in its block list. It has exactly two
     // callers: the summon validator (ClientMercenaryClanActorComponent slot
     // 41) and ConditionData_IsVehicleAllowedInEnteredRegion, which is what
@@ -240,10 +247,10 @@ namespace fp::sig
     inline constexpr const char* kNoFlyZones_Ctx =
         "48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 4C 89 64 24 20 55 41 56 41 57 "
         "48 8D 6C 24 B9 48 81 EC C0 00 00 00 4C 8B FA";
-    inline constexpr BytePatch kPatch_NoFlyZones = { "NoFlyZones", 0x18AD0D0, kNoFlyZones_Orig, kNoFlyZones_Repl, 3,
+    inline constexpr BytePatch kPatch_NoFlyZones = { "NoFlyZones", 0x18AE890, kNoFlyZones_Orig, kNoFlyZones_Repl, 3,
                                                      kNoFlyZones_Ctx, 0 };
 
-    // +0xAE2951 is the `je` in the validator that skips writing
+    // +0xAE3C71 is the `je` in the validator that skips writing
     // eErrNoCallVehicleMercenaryRegion ("Cannot summon in this area.") when
     // the routine above says the region does not block. Made unconditional,
     // so the summon side is covered even with NoFlyZones off.
@@ -251,7 +258,7 @@ namespace fp::sig
     inline constexpr uint8_t kAbyssSummon_Repl[] = { 0xEB, 0x7D };       // jmp +0x7D
     // call <the routine above>; test al,al; je; mov eax,[rip+error]; mov [rsi],eax
     inline constexpr const char* kAbyssSummon_Ctx = "E8 ?? ?? ?? ?? 84 C0 74 7D 8B 05 ?? ?? ?? ?? 89 06 48 8D 44 24 70";
-    inline constexpr BytePatch kPatch_AbyssSummon = { "AbyssSummon", 0xAE2951, kAbyssSummon_Orig, kAbyssSummon_Repl, 2,
+    inline constexpr BytePatch kPatch_AbyssSummon = { "AbyssSummon", 0xAE3C71, kAbyssSummon_Orig, kAbyssSummon_Repl, 2,
                                                       kAbyssSummon_Ctx, 7 };
 
     // PlatformSummon patched a `je` in the validator body (+0x9DD6A6 on
@@ -263,10 +270,10 @@ namespace fp::sig
     // the game reads the error's global any more, so there is no site and the
     // setting does nothing.
 
-    // After the region check the validator calls +0x3EB820 (at +0xAE2A73),
+    // After the region check the validator calls +0x3EBE20 (at +0xAE3D93),
     // which puts a small box around the player, asks the physics scene what
     // overlaps it and, if any hit passes a filter, writes
-    // eErrNoInvalidPositionForAction ("You cannot do that here."). +0xAE2A80
+    // eErrNoInvalidPositionForAction ("You cannot do that here."). +0xAE3DA0
     // is the `je` that skips the refusal when nothing was in the way. On
     // 2.04.00 the helper can raise that error on five paths instead of one,
     // and this `je` tests its result after all of them. Seth,
@@ -278,10 +285,10 @@ namespace fp::sig
     inline constexpr uint8_t kBlockedSummon_Repl[] = { 0xEB, 0x35 };     // jmp +0x35
     // call <the helper>; mov eax,[rbp+0x278]; test eax,eax; je; mov [rsi],eax
     inline constexpr const char* kBlockedSummon_Ctx = "E8 ?? ?? ?? ?? 8B 85 78 02 00 00 85 C0 74 35 89 06 48 8D 05";
-    inline constexpr BytePatch kPatch_BlockedSummon = { "BlockedSummon", 0xAE2A80, kBlockedSummon_Orig, kBlockedSummon_Repl, 2,
+    inline constexpr BytePatch kPatch_BlockedSummon = { "BlockedSummon", 0xAE3DA0, kBlockedSummon_Orig, kBlockedSummon_Repl, 2,
                                                         kBlockedSummon_Ctx, 13 };
 
-    // +0x243B3F0 is ConditionData_IsAboveRoad's condition slot. It reads the
+    // +0x243ED30 is ConditionData_IsAboveRoad's condition slot. It reads the
     // road type and radius baked into the condition object, asks the actor's
     // navigation component, and inverts the answer. Exactly one conditioninfo
     // row uses it, out of 10,798 on 2.03.00 and 10,785 on 2.02.00: row
@@ -294,12 +301,12 @@ namespace fp::sig
     inline constexpr uint8_t kTownFlight_Repl[] = { 0x31, 0xC0, 0xC3 };  // xor eax,eax; ret
     inline constexpr const char* kTownFlight_Ctx =
         "48 83 EC 28 48 8B 82 28 08 00 00 4C 8B C1 48 8B 48 68 C4 C1 7A 10 50 1C 41 0F B6 50 18";
-    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x243B3F0, kTownFlight_Orig, kTownFlight_Repl, 3,
+    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x243ED30, kTownFlight_Orig, kTownFlight_Repl, 3,
                                                      kTownFlight_Ctx, 0 };
 
     // --- Blackstar's takeoff (BlackstarStays) --------------------------------
-    // Every action an AI chart starts goes through one function (+0x238D940
-    // on exe 3479, +0x238D990 on 3462, +0x238D680 on 3460, +0x2389F50 on 3446, +0x2388DA0 on 3424, +0x2387B10 on 3392, +0x21C0990 on 2.03.02, +0x21C0940 on 2.03.01, +0x21C0930 on
+    // Every action an AI chart starts goes through one function (+0x2391280
+    // on exe 3527, +0x238D940 on 3479, +0x238D990 on 3462, +0x238D680 on 3460, +0x2389F50 on 3446, +0x2388DA0 on 3424, +0x2387B10 on 3392, +0x21C0990 on 2.03.02, +0x21C0940 on 2.03.01, +0x21C0930 on
     // 2.03.00). It takes the actor's navigation
     // component in rcx and the request in r9, and the request's first qword
     // is the action's hash. A landed mount starts 0x31D37232, and 30.03 s
@@ -325,7 +332,7 @@ namespace fp::sig
 
     // --- Blackstar's summon cooldown (BlackstarCooldown) ---------------------
     // The one check that refuses a summon with eErrNoCallVehicleCoolTimeExist
-    // (+0x2311D40 on exe 3479, +0x2311D90 on 3462, +0x2311A80 on 3460, +0x230E390 on 3446, +0x230D1E0 on 3424, +0x230BF60 on 3392, +0x214AB90 on 2.03.02). rcx the mercenary component, rdx the error out,
+    // (+0x2314A80 on exe 3527, +0x2311D40 on 3479, +0x2311D90 on 3462, +0x2311A80 on 3460, +0x230E390 on 3446, +0x230D1E0 on 3424, +0x230BF60 on 3392, +0x214AB90 on 2.03.02). rcx the mercenary component, rdx the error out,
     // r8 the mount's key; it returns rdx. It looks the key up in the map at
     // component+0x18, walks the 0x28-byte cooldown entries at +0x88 (count at
     // +0x90) for the same key, and refuses while the end time at entry+0x10
