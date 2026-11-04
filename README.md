@@ -132,9 +132,10 @@ plugin scored 0 of 71, the DMM archive 0 of 64 and the full archive 0 of 65.
 For 1.1.12 the plugin scored 0 of 70 and both archives 0 of 68. 1.1.13 got
 0 of 71 on the plugin, 0 of 67 on the DMM archive and 0 of 68 on the full one,
 and 1.1.14 matched it on all three. 1.1.15 scored 0 of 70 on the plugin
-and 0 of 68 on both archives. Sixteen releases is still a short history, so
-the figures stay here one release at a time instead of collapsing into a
-single score. 1.1.15 reports:
+and 0 of 68 on both archives, and 1.1.16 got 0 of 70 on the plugin and 0 of
+67 on both. Seventeen releases is still a short history, so the figures stay
+here one release at a time instead of collapsing into a single score. 1.1.16
+reports:
 [the plugin](https://www.virustotal.com/gui/file/0e6eb0785ba89d0a0f4220ba1c89311329164d5cb7ce55d4c55dcd97bfb1c338),
 [the DMM archive](https://www.virustotal.com/gui/file/c5d1a1664168184f5b21403c09b75ae23bc384e2f5a65e421395d84f2358a981) and
 [the full archive](https://www.virustotal.com/gui/file/517750fcd03a1dbce6762cec1c2418b917ab5d9dea656c8a9e6eecfca6489234).
