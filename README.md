@@ -137,9 +137,9 @@ and 0 of 68 on both archives, and 1.1.16 got 0 of 70 on the plugin and 0 of
 67 on both. Seventeen releases is still a short history, so the figures stay
 here one release at a time instead of collapsing into a single score. 1.1.16
 reports:
-[the plugin](https://www.virustotal.com/gui/file/102feae6d1185a84b22c0bf28727aa362b373690d86e96804bca89fec1c68271),
-[the DMM archive](https://www.virustotal.com/gui/file/283c9d685b8ce84b4763743f22fc7a7db8691b97d2639159783dbc62c5387db9) and
-[the full archive](https://www.virustotal.com/gui/file/3635d5cf0545c97d2e7f5efe1b1cf48225be7328c3ec4d5c81f1820e518cdf79).
+[the plugin](https://www.virustotal.com/gui/file/bf673a8010bb0f2937914c505fc357cc5c0096bfa124b1d4c7dd8fe5fd4ea256),
+[the DMM archive](https://www.virustotal.com/gui/file/8151719fb2363dfbea7f462c34c5dac0a13e66b7d476dcdb760f3a39c5c97614) and
+[the full archive](https://www.virustotal.com/gui/file/a3a9e4273c8ba45a050c9dc63353ba868acaebda6e291b45745e622b9e40d639).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -161,9 +161,9 @@ If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
 SHA-256 for 1.1.17:
 
-    283c9d685b8ce84b4763743f22fc7a7db8691b97d2639159783dbc62c5387db9  FlightFreedom-1.1.17-DMM.zip
-    3635d5cf0545c97d2e7f5efe1b1cf48225be7328c3ec4d5c81f1820e518cdf79  FlightFreedom-1.1.17.zip
-    102feae6d1185a84b22c0bf28727aa362b373690d86e96804bca89fec1c68271  FlightFreedom.asi
+    8151719fb2363dfbea7f462c34c5dac0a13e66b7d476dcdb760f3a39c5c97614  FlightFreedom-1.1.17-DMM.zip
+    a3a9e4273c8ba45a050c9dc63353ba868acaebda6e291b45745e622b9e40d639  FlightFreedom-1.1.17.zip
+    bf673a8010bb0f2937914c505fc357cc5c0096bfa124b1d4c7dd8fe5fd4ea256  FlightFreedom.asi
 
 ## Building
 
