@@ -89,6 +89,7 @@ below is also the plugin's own.
 | `AbyssSummon` | `1` | `1` means the summon check never refuses for the region. |
 | `PlatformSummon` | `0` | Does nothing on 2.04.00. The game no longer refuses a summon for what you are standing on, so there is nothing left to patch. The setting stays so an older ini still reads. |
 | `BlockedSummon` | `1` | `1` means the summon check never refuses for something solid close around you, which is what says "You cannot do that here." on the Abyss Nexus, to the Wyvern as well. |
+| `RoofSummon` | `1` | `1` means the summon check never refuses because there is a ceiling over you or you're on a roof. For the Wyvern that refusal says "Cannot summon in this location." |
 | `TownFlight` | `1` | `1` means flying low over a town off the road never dismounts you. |
 | `BlackstarStays` | `1` | Blackstar stays where you get off it instead of flying away about 30 seconds later. `0` keeps the game's behaviour. In 1.1.5 this changed his spawn duration, which did nothing, and an old number left here is read as `1`. `LandedTimeout` is retired and ignored. |
 | `BlackstarCooldown` | `0` | Blackstar's summon cooldown in seconds. `0` removes it, a cooldown already running included. `-1` leaves the table alone, so the game's 3600 or another mod's value stands. Any other number is that many seconds; only `0` has been played. |

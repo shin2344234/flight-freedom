@@ -13,4 +13,7 @@ namespace fp::takeoff
     bool Install();
     // Takeoffs refused so far this session.
     long Refusals();
+    // Writes the queued mount action lines. The hook only records, because it
+    // runs on game threads; the worker calls this ten times a second.
+    void Drain();
 }

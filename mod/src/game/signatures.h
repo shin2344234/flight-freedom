@@ -295,6 +295,32 @@ namespace fp::sig
     inline constexpr BytePatch kPatch_BlockedSummon = { "BlockedSummon", 0xAE41B0, kBlockedSummon_Orig, kBlockedSummon_Repl, 2,
                                                         kBlockedSummon_Ctx, 13 };
 
+    // Later in validator2, for a mount whose info carries flag 4 (the test
+    // at +0xAE4238; the others leave through +0xAE462F straight away), the
+    // validator calls +0xAE4AD0 at +0xAE4416 with the player's position.
+    // That function is the only reader of eErrNoCallVehicleMercenaryIndoor
+    // (+0x714BD40) and eErrNoCallVehicleMercenaryOnRoof (+0x714BD44): with
+    // r8b set it casts upward from the position and refuses as indoor when
+    // something is overhead, and then it asks +0x89D080 whether the
+    // position is on a roof. When the first call refuses, the validator
+    // tries eight offsets around the player through the same function and
+    // writes the first error if every one of them refuses too. For the
+    // Wyvern the screen says "Cannot summon in this location." whatever the
+    // error was, which fits Tapap19 near the Wyvern castle (issue 1).
+    // +0xAE441F is the `je` taken when the first call found nothing.
+    // Jumping always leaves through the validator's own allowed exit, where
+    // r14d is still the function's zero register, so the eight retries and
+    // the refusal are skipped and nothing else changes. Found 6 November
+    // 2026 on 3576; nobody has played it yet.
+    inline constexpr uint8_t kRoofSummon_Orig[] = { 0x0F, 0x84, 0x0A, 0x02, 0x00, 0x00 };  // je +0x20A
+    inline constexpr uint8_t kRoofSummon_Repl[] = { 0x90, 0xE9, 0x0A, 0x02, 0x00, 0x00 };  // nop; jmp +0x20A
+    // lea r9,[rsp+0x20]; movzx r8d,r13b; mov rdx,r12; lea rcx,[rbp+0x278];
+    // call <the check>; mov edi,[rax]; test edi,edi; je; call
+    inline constexpr const char* kRoofSummon_Ctx =
+        "4C 8D 4C 24 20 45 0F B6 C5 49 8B D4 48 8D 8D 78 02 00 00 E8 ?? ?? ?? ?? 8B 38 85 FF 0F 84 ?? ?? ?? ?? E8";
+    inline constexpr BytePatch kPatch_RoofSummon = { "RoofSummon", 0xAE441F, kRoofSummon_Orig, kRoofSummon_Repl, 6,
+                                                     kRoofSummon_Ctx, 28 };
+
     // +0x243FB00 is ConditionData_IsAboveRoad's condition slot. It reads the
     // road type and radius baked into the condition object, asks the actor's
     // navigation component, and inverts the answer. Exactly one conditioninfo
@@ -336,6 +362,9 @@ namespace fp::sig
         "48 8B 46 08 48 8B 48 68 4C 8B CD 4D 8B C4 48 8B 89 A8 01 00 00 E8";
     inline constexpr unsigned kOff_StartActionCall_E8 = 0x15;
     inline constexpr uint64_t kAction_MountTakeoff = 0x513043A8;
+    // What the mount starts when it lands, 30 s before it asks for the
+    // takeoff. Measured on 2.03.01 only; logged, never refused.
+    inline constexpr uint64_t kAction_MountLanded = 0x31D37232;
 
     // --- Blackstar's summon cooldown (BlackstarCooldown) ---------------------
     // The one check that refuses a summon with eErrNoCallVehicleCoolTimeExist

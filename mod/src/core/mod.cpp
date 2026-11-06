@@ -70,6 +70,7 @@ namespace
         bool  abyssSummon;    // validator never refuses a summon for the region
         bool  platformSummon; // validator never refuses a summon for what is underfoot
         bool  blockedSummon;  // validator never refuses a summon for something in the way
+        bool  roofSummon;     // validator never refuses a summon for a roof or a ceiling
         bool  townFlight;     // the town dismount condition can never be true
         // Refuse the takeoff action a landed Blackstar's chart starts. Up to
         // 1.1.5 this wrote the spawn duration in characterinfo, which was
@@ -94,6 +95,7 @@ namespace
         s.abyssSummon    = ReadSetting(L"AbyssSummon", L"1") != 0.0f;
         s.platformSummon = ReadSetting(L"PlatformSummon", L"0") != 0.0f;
         s.blockedSummon  = ReadSetting(L"BlockedSummon", L"1") != 0.0f;
+        s.roofSummon     = ReadSetting(L"RoofSummon", L"1") != 0.0f;
         s.townFlight     = ReadSetting(L"TownFlight", L"1") != 0.0f;
         s.blackstarStays = ReadSetting(L"BlackstarStays", L"1");
         s.blackstarCooldown = ReadSetting(L"BlackstarCooldown", L"0");
@@ -132,9 +134,9 @@ namespace
         const Settings s = ReadSettings();
 
         LOG("[mod] %s %s for Crimson Desert 2.04.08 (exe 1.0.0.3576). Settings: Ceiling=%s NoFlyZones=%d "
-            "AbyssSummon=%d PlatformSummon=%d BlockedSummon=%d TownFlight=%d BlackstarStays=%d BlackstarCooldown=%d Probe=%d", FP_NAME,
+            "AbyssSummon=%d PlatformSummon=%d BlockedSummon=%d RoofSummon=%d TownFlight=%d BlackstarStays=%d BlackstarCooldown=%d Probe=%d", FP_NAME,
             FP_VERSION, s.ceiling == 0.0f ? "0 (game's own)" : (s.ceiling < 0.0f ? "-1 (none)" : "custom"),
-            s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.platformSummon ? 1 : 0, s.blockedSummon ? 1 : 0,
+            s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.platformSummon ? 1 : 0, s.blockedSummon ? 1 : 0, s.roofSummon ? 1 : 0,
             s.townFlight ? 1 : 0,
             static_cast<int>(s.blackstarStays), static_cast<int>(s.blackstarCooldown), s.probe ? 1 : 0);
         if (s.oldLanded)
@@ -170,6 +172,13 @@ namespace
         else
             LOG("[patch] BlockedSummon is 0: a summon is still refused with \"You cannot do that here.\" when "
                 "something solid is close around you, as on the Abyss Nexus.");
+        if (s.roofSummon)
+            fp::sites::ApplyPatch(fp::sig::kPatch_RoofSummon.name, fp::sig::kPatch_RoofSummon.rva,
+                                  fp::sig::kPatch_RoofSummon.orig, fp::sig::kPatch_RoofSummon.repl,
+                                  fp::sig::kPatch_RoofSummon.len, fp::sig::kPatch_RoofSummon.ctx, fp::sig::kPatch_RoofSummon.ctxBack);
+        else
+            LOG("[patch] RoofSummon is 0: a summon is still refused indoors, under a roof or on one. For the "
+                "Wyvern the game says \"Cannot summon in this location.\"");
         if (s.townFlight)
             fp::sites::ApplyPatch(fp::sig::kPatch_TownFlight.name, fp::sig::kPatch_TownFlight.rva,
                                   fp::sig::kPatch_TownFlight.orig, fp::sig::kPatch_TownFlight.repl,
@@ -274,7 +283,11 @@ namespace
                 const long sv = fp::conditions::SummonOverrideCount();
                 if (sv != lastSv) { LOG("[override] %ld summon gates answered allowed so far", sv); lastSv = sv; }
             }
-            for (int i = 0; i < 4 && !g_stop.load(); ++i) Sleep(500);
+            for (int i = 0; i < 20 && !g_stop.load(); ++i)
+            {
+                fp::takeoff::Drain();
+                Sleep(100);
+            }
         }
         LOG("[mod] worker stopped");
         return 0;

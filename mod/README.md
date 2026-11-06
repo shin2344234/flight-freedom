@@ -43,6 +43,7 @@ All in `FlightFreedom.ini`, section `[settings]`.
 | `AbyssSummon` | `1` | The summon validator never refuses for the region. Redundant with `NoFlyZones=1`, kept so Abyss summons work with `NoFlyZones=0`. |
 | `PlatformSummon` | `0` | Does nothing on 2.04.00, see below. Kept so an older ini still reads. |
 | `BlockedSummon` | `1` | The summon validator never refuses for something solid close around you. That check is what says "You cannot do that here." on the Abyss Nexus, to every mount. |
+| `RoofSummon` | `1` | The summon validator never refuses for a ceiling over you or a roof under you. For the Wyvern that refusal says "Cannot summon in this location." |
 | `TownFlight` | `1` | Flying low over a town off the road never dismounts you. |
 | `BlackstarStays` | `1` | Blackstar stays where you get off it instead of flying away about 30 seconds later. `0` keeps the game's behaviour. |
 | `BlackstarCooldown` | `0` | Blackstar's summon cooldown in seconds, an hour in the game's table. `0` removes it, a cooldown already running included. `-1` leaves the table alone. Any other number is that many seconds; only `0` has been played. |
@@ -107,6 +108,12 @@ physics scene what overlaps a small box at your feet, and when something
 solid is there it refuses with "You cannot do that here." The Abyss Nexus
 trips it for every mount, the Wyvern included. `BlockedSummon` turns the
 branch after that check into a jump past the refusal.
+
+Some mounts get one more test. The validator looks straight up from
+where you stand and refuses when something is overhead, then asks whether
+you are on a roof, and it tries eight spots around you before it gives up.
+For the Wyvern the screen says "Cannot summon in this location." whatever
+the reason was. `RoofSummon` jumps past that test.
 
 Towns are a separate rule, and a narrower one. The condition reads "in town
 and not above a road within 20", so riding through on the road is fine and
