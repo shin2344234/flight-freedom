@@ -135,9 +135,11 @@ For 1.1.12 the plugin scored 0 of 70 and both archives 0 of 68. 1.1.13 got
 and 1.1.14 matched it on all three. 1.1.15 scored 0 of 70 on the plugin
 and 0 of 68 on both archives, and 1.1.16 got 0 of 70 on the plugin and 0 of
 67 on both. 1.1.17, built for the 6 November patch, scored 0 of 71 on the
-plugin, 0 of 67 on the DMM archive and 0 of 68 on the full one. Eighteen
-releases is still a short history, so the figures stay here one release at a
-time instead of collapsing into a single score. 1.1.17 reports:
+plugin, 0 of 67 on the DMM archive and 0 of 68 on the full one. 1.1.18, for
+the 13 November update, got 0 of 70 on the plugin and 0 of 68 on both
+archives. Nineteen releases is still a short history, so the figures stay here
+one release at a time instead of collapsing into a single score. 1.1.18
+reports:
 [the plugin](https://www.virustotal.com/gui/file/d8db35a95705d89a771978722cb9ef131ec3c99bb996311cbc509cd6bfb3e949),
 [the DMM archive](https://www.virustotal.com/gui/file/8f81eb173250c920c516642c63aee72f3913bf78f9295059d6df596c4aa023c3) and
 [the full archive](https://www.virustotal.com/gui/file/edfc2db4f0ca14c5312dcf098f7fd9a27ed217c46c749ea4864cdeef4c614732).
