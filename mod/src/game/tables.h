@@ -18,7 +18,7 @@ namespace fp::tables
         uintptr_t global = 0;   // address of the pointer the resolver loads
         uintptr_t object = 0;   // the table itself
         uint32_t  rows   = 0;
-        unsigned  defsOff = 0;  // whichever of DefsA / DefsB produced string keys
+        unsigned  defsOff = 0;  // the row array's offset in the table object once string keys read, else 0
     };
 
     // Resolve by name ("vehicleinfo"). False while the table is not loaded yet,

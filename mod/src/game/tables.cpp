@@ -24,55 +24,58 @@ namespace
         uint8_t  b[kDefScanBytes] = {};
     };
 
-    // The resolver clone that names this table: a `lea r8,[rip+"<name>"]` with
-    // the 16-bit-key prologue somewhere above it.
-    bool TableVisit(uintptr_t hit, void* ctx)
+    // The getter that names this table: its call goes to the table's loader,
+    // and the first `lea r8,[rip+string]` in the loader is the table's name.
+    bool TableVisit(uintptr_t getter, void* ctx)
     {
         auto* h = static_cast<TableHunt*>(ctx);
-        const uintptr_t str = fp::mem::RipAt(hit, 7);
-        char buf[32];
-        if (!fp::mem::ReadCString(str, buf, sizeof buf) || strcmp(buf, h->name) != 0) return false;
-        for (uintptr_t p = hit; p + kMax_LeaToPrologue > hit && p > fp::mem::Game().base; --p)
-            if (fp::mem::MatchAt(p, kSig_TableResolver16)) { h->fn = p; return true; }
+        const uintptr_t loader = fp::mem::RipAt(getter + kOff_TableGetter_Call, 5);
+        if (!fp::mem::InImage(loader)) return false;
+        for (uintptr_t p = loader; p < loader + kMax_LoaderToNameLea; ++p)
+        {
+            if (!fp::mem::MatchAt(p, kSig_LeaR8Rip)) continue;
+            char buf[32];
+            const uintptr_t str = fp::mem::RipAt(p, 7);
+            if (!fp::mem::ReadCString(str, buf, sizeof buf) || strcmp(buf, h->name) != 0) return false;
+            h->fn = getter;
+            return true;
+        }
         return false;
     }
 
     uintptr_t GlobalFor(const char* name)
     {
         TableHunt h{ name, 0 };
-        fp::mem::FindIf(kSig_LeaR8Rip, TableVisit, &h);
+        fp::mem::FindIf(kSig_TableGetter, TableVisit, &h);
         if (!h.fn) return 0;
-        const uintptr_t g = fp::mem::RipAt(h.fn + kOff_TableResolver_MovGlobal, 7);
+        const uintptr_t g = fp::mem::RipAt(h.fn + kOff_TableGetter_MovGlobal, 7);
         return fp::mem::InImage(g) ? g : 0;
     }
 
+    // A row's def, or 0 when the game has not built that row yet.
     uintptr_t DefAt(const fp::tables::Table& t, uint32_t row)
     {
-        uintptr_t defs = 0, def = 0;
+        uintptr_t rows = 0, def = 0;
         if (!t.object || row >= t.rows) return 0;
-        if (!fp::mem::ReadPtr(t.object + t.defsOff, &defs)) return 0;
-        if (!fp::mem::ReadPtr(defs + 8ull * row, &def)) return 0;
+        if (!fp::mem::ReadPtr(t.object + kOff_Table_Rows, &rows) || !rows) return 0;
+        if (!fp::mem::ReadPtr(rows + uintptr_t(kStride_TableRow) * row + kOff_Row_Def, &def)) return 0;
         return def;
     }
 
-    // A def offset is only usable if it yields string keys. Try both known
-    // positions of the def array and keep the one that reads.
-    bool PickDefsOffset(fp::tables::Table& t)
+    // The table counts as resolved once at least two of its first rows carry
+    // a readable string key, which is what says the layout is the one above.
+    bool CheckRows(fp::tables::Table& t)
     {
-        const unsigned tryOffs[2] = { kOff_Table_DefsA, kOff_Table_DefsB };
-        for (unsigned o : tryOffs)
+        t.defsOff = kOff_Table_Rows;
+        int good = 0;
+        for (uint32_t r = 0; r < t.rows && good < 2; ++r)
         {
-            t.defsOff = o;
-            int good = 0;
-            for (uint32_t r = 0; r < t.rows && r < 8; ++r)
-            {
-                const uintptr_t def = DefAt(t, r);
-                char key[64];
-                if (def && fp::mem::ReadEngineString(def + kOff_Def_StringKey, key, sizeof key) && strlen(key) >= 2)
-                    ++good;
-            }
-            if (good >= 2) return true;
+            const uintptr_t def = DefAt(t, r);
+            char key[64];
+            if (def && fp::mem::ReadEngineString(def + kOff_Def_StringKey, key, sizeof key) && strlen(key) >= 2)
+                ++good;
         }
+        if (good >= 2) return true;
         t.defsOff = 0;
         return false;
     }
@@ -356,7 +359,7 @@ namespace fp::tables
         if (!mem::ReadPtr(out.global, &out.object) || !out.object) return false;
         if (!mem::Read32(out.object + kOff_Table_Count, &out.rows) || !out.rows || out.rows > 0x40000)
             return false;
-        return PickDefsOffset(out);
+        return CheckRows(out);
     }
 
     bool StringKey(const Table& t, uint32_t row, char* out, size_t n)
@@ -380,7 +383,7 @@ namespace fp::tables
 
         std::vector<Rec> recs;
 
-        LOG_OK("[table] vehicleinfo at +0x%llX, %u rows, defs at +0x%02X",
+        LOG_OK("[table] vehicleinfo at +0x%llX, %u rows, row array at [+0x%02X]",
                static_cast<unsigned long long>(mem::Rva(veh.global)), veh.rows, veh.defsOff);
         char key[96];
         for (uint32_t r = 0; r < veh.rows && r < 40; ++r)
@@ -419,7 +422,7 @@ namespace fp::tables
             }
         }
 
-        LOG_OK("[table] regioninfo at +0x%llX, %u rows, defs at +0x%02X",
+        LOG_OK("[table] regioninfo at +0x%llX, %u rows, row array at [+0x%02X]",
                static_cast<unsigned long long>(mem::Rva(reg.global)), reg.rows, reg.defsOff);
         Copy(reg, recs);
         LOG("[table] copied %zu of %u regioninfo records", recs.size(), reg.rows);
