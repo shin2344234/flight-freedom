@@ -1,6 +1,6 @@
 # Flight Freedom
 
-Lifts the mount restrictions in Crimson Desert 2.04.08 (exe 1.0.0.3576):
+Lifts the mount restrictions in Crimson Desert 2.05.00 (exe 1.0.0.3663):
 the 1350 flying ceiling, the region rule that dismounts you at altitude and
 keeps mounts out of listed regions, the "Cannot summon in this area." refusal
 inside the Abyss, the rule that throws you off when you fly low over a
@@ -128,11 +128,13 @@ The hooks and patches are restored when the plugin unloads.
 
 ## Known limits
 
-- Built for 2.04.08 (exe 1.0.0.3576), the DLC update's eighth hotfix. A
-  patch will not apply on a different build, and the log names each one that
-  refused. The ceiling
-  is found by name and not by address, so it can keep working after an update
-  that stops the patches.
+- Built for 2.05.00 (exe 1.0.0.3663), the 13 November update. A patch will
+  not apply on a different build, and the log names each one that refused.
+  The ceiling is found by name and not by address, so it usually keeps
+  working after an update that stops the patches. 2.05.00 was the exception.
+  The game changed how it stores its data tables, so 1.1.17 found neither
+  `vehicleinfo` nor `characterinfo` there and left the ceiling and
+  Blackstar's cooldown as the game had them. 1.1.18 reads the new layout.
 - A `BlackstarCooldown` other than `0` or `-1` has not been played. It is
   meant to set the length of a cooldown that starts afterwards, and whether
   the game reads the table at that moment has not been measured.
