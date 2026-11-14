@@ -348,6 +348,25 @@ namespace fp::sig
     inline constexpr BytePatch kPatch_RoofSummon = { "RoofSummon", 0xB1A54D, kRoofSummon_Orig, kRoofSummon_Repl, 6,
                                                      kRoofSummon_Ctx, 28 };
 
+    // The check that je tests, +0xB1AC00 on 3663, hooked only to log what it
+    // answers (roof.cpp); the answer is never changed. The call in front of
+    // the site finds it, and stops before the je so it matches whether or
+    // not RoofSummon is written. The validator's other call to it, at
+    // +0xB1A6ED, is the eight retries and has a different setup.
+    inline constexpr const char* kSig_RoofCheckCall =
+        "4C 8D 4C 24 20 45 0F B6 C5 49 8B D4 48 8D 8D 78 02 00 00 E8 ?? ?? ?? ?? 8B 38 85 FF";
+    inline constexpr unsigned kOff_RoofCheckCall = 19;   // the E8 inside kSig_RoofCheckCall
+    inline constexpr unsigned kOff_RoofCheckJe   = 28;   // kPatch_RoofSummon's je, from the pattern's start
+    // mov rax,rsp and the three register saves: 15 bytes for the hook to take.
+    inline constexpr const char* kSig_RoofCheckEntry = "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18";
+    // mov eax,[rip+the error's global]; mov [rsi],eax; jmp to the exit. The
+    // first in the function is eErrNoCallVehicleMercenaryIndoor (+0x71D0B28
+    // on 3663, after the upward cast) and the second
+    // eErrNoCallVehicleMercenaryOnRoof (+0x71D0B2C, after the roof query),
+    // named from the error registration's own leas.
+    inline constexpr const char* kSig_RoofCheckErr = "8B 05 ?? ?? ?? ?? 89 06 EB";
+    inline constexpr unsigned kRoofCheckScan = 0x300;    // the function is 0x278 bytes on 3663
+
     // +0x24B16F0 is ConditionData_IsAboveRoad's condition slot. It reads the
     // road type and radius baked into the condition object, asks the actor's
     // navigation component, and inverts the answer. Exactly one conditioninfo

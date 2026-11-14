@@ -18,6 +18,7 @@
 #include "game/tables.h"
 #include "game/takeoff.h"
 #include "game/cooldown.h"
+#include "game/roof.h"
 #include "version.h"
 
 namespace
@@ -172,13 +173,17 @@ namespace
         else
             LOG("[patch] BlockedSummon is 0: a summon is still refused with \"You cannot do that here.\" when "
                 "something solid is close around you, as on the Abyss Nexus.");
+        bool roofPatched = false;
         if (s.roofSummon)
-            fp::sites::ApplyPatch(fp::sig::kPatch_RoofSummon.name, fp::sig::kPatch_RoofSummon.rva,
+            roofPatched = fp::sites::ApplyPatch(fp::sig::kPatch_RoofSummon.name, fp::sig::kPatch_RoofSummon.rva,
                                   fp::sig::kPatch_RoofSummon.orig, fp::sig::kPatch_RoofSummon.repl,
                                   fp::sig::kPatch_RoofSummon.len, fp::sig::kPatch_RoofSummon.ctx, fp::sig::kPatch_RoofSummon.ctxBack);
         else
             LOG("[patch] RoofSummon is 0: a summon is still refused indoors, under a roof or on one. For the "
                 "Wyvern the game says \"Cannot summon in this location.\"");
+        // Either way, log what that check answers, so a refused summon says
+        // in the log whether this is the check that refused it.
+        fp::roof::Install(roofPatched);
         if (s.townFlight)
             fp::sites::ApplyPatch(fp::sig::kPatch_TownFlight.name, fp::sig::kPatch_TownFlight.rva,
                                   fp::sig::kPatch_TownFlight.orig, fp::sig::kPatch_TownFlight.repl,
