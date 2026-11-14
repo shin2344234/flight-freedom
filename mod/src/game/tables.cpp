@@ -2,6 +2,8 @@
 
 #include <Windows.h>
 #include <cctype>
+#include <cfloat>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <vector>
@@ -153,6 +155,10 @@ namespace
     // table a second time.
     fp::tables::Table g_veh;
     int g_ceilingOff = -1;
+    // True when the offset came out of the loader's code. Only then is every
+    // row with a finite ceiling raised; an offset found by the 1350.0 count
+    // raises only the rows that still hold 1350.0.
+    bool g_ceilingFromCode = false;
     int g_groundOff = -1;
 
     // FLT_MAX is what every ground mount carries, so it means "no ceiling"
@@ -267,6 +273,38 @@ namespace
         return static_cast<int>(d);
     }
 
+    // The inline 4-byte read that belongs to the message loaded at `lea`, in
+    // either encoding of its lea. Same contract as ReadBeforeMessage.
+    int ReadF32BeforeMessage(uintptr_t lea, const char** why, uintptr_t* readAt)
+    {
+        if (fp::mem::MatchAt(lea - kLen_FieldRead4Disp8, kSig_FieldRead4Disp8))
+        {
+            uint8_t d = 0;
+            if (!fp::mem::Read8(lea - kLen_FieldRead4Disp8 + 3, &d)) { *why = "a field read that could not be decoded"; return -1; }
+            *why = "";
+            *readAt = lea - kLen_FieldRead4Disp8;
+            // disp8 is signed, and a record field is never behind its start.
+            if (d >= 0x80) { *why = "a 4-byte read at a negative offset"; return -1; }
+            return d;
+        }
+        if (fp::mem::MatchAt(lea - kLen_FieldRead4Disp32, kSig_FieldRead4Disp32))
+        {
+            uint32_t d = 0;
+            if (!fp::mem::Read32(lea - kLen_FieldRead4Disp32 + 3, &d) || d >= 0x10000)
+            {
+                *why = "a field read that could not be decoded";
+                return -1;
+            }
+            *why = "";
+            *readAt = lea - kLen_FieldRead4Disp32;
+            return static_cast<int>(d);
+        }
+        *why = "no 4-byte field read in front of it";
+        return -1;
+    }
+
+    using ReadBefore = int (*)(uintptr_t lea, const char** why, uintptr_t* readAt);
+
     int64_t I64At(const uint8_t* rec, unsigned off)
     {
         int64_t v = 0;
@@ -297,12 +335,13 @@ namespace
     }
 }
 
-namespace fp::tables
+namespace
 {
     // The record offset the loader writes for one field, read out of the code
     // rather than out of the data. -1 and a log line when any step is not
-    // exactly what this build expects.
-    int LoaderFieldOffset(const char* table, const char* field)
+    // exactly what this build expects. `readBefore` decides what shape of read
+    // counts, which is what makes it an 8-byte or a 4-byte field.
+    int FieldOffsetFromLoader(const char* table, const char* field, ReadBefore readBefore)
     {
         char pattern[128];
         BytePattern(field, pattern, sizeof pattern);
@@ -328,7 +367,7 @@ namespace fp::tables
         {
             const char* why = "";
             uintptr_t read = 0;
-            const int o = ReadBeforeMessage(lh.lea[i], &why, &read);
+            const int o = readBefore(lh.lea[i], &why, &read);
             if (o < 0)
             {
                 LOG("[loader] +0x%llX loads %s's message for %s but has %s.",
@@ -348,6 +387,19 @@ namespace fp::tables
         LOG_OK("[loader] %s reads %s into record +0x%02X, from the code at +0x%llX.", table, field, off,
                static_cast<unsigned long long>(fp::mem::Rva(at)));
         return off;
+    }
+}
+
+namespace fp::tables
+{
+    int LoaderFieldOffset(const char* table, const char* field)
+    {
+        return FieldOffsetFromLoader(table, field, ReadBeforeMessage);
+    }
+
+    int LoaderF32Offset(const char* table, const char* field)
+    {
+        return FieldOffsetFromLoader(table, field, ReadF32BeforeMessage);
     }
 
     bool Resolve(const char* name, Table& out)
@@ -392,13 +444,50 @@ namespace fp::tables
         Copy(veh, recs);
         LOG("[table] copied %zu of %u vehicleinfo records", recs.size(), veh.rows);
         {
-            const int off = FindF32Offset(recs, kVehicleFlyingCeiling, kVehicleRowsWithCeiling);
-            if (off < 0)
-                LOG_ERR("[table] no offset in a vehicleinfo record holds %.1f on exactly %u rows. Either the build "
-                        "moved or the ceiling changed, so do not take an offset from this run.",
+            // The loader's own read names the field, so a data mod that edits
+            // the Wyvern's or Blackstar's row cannot hide it. Up to 1.1.18 the
+            // only test was 1350.0 on exactly two rows, and a vehicleinfo mod
+            // that changed either row left both mounts with the game's ceiling.
+            const int code = LoaderF32Offset(kStr_VehicleInfoMsg, kField_MaxAllowableHeight);
+            const int byValue = FindF32Offset(recs, kVehicleFlyingCeiling, kVehicleRowsWithCeiling);
+            if (code >= 0 && static_cast<unsigned>(code) + 4 <= kDefScanBytes)
+            {
+                uint32_t stock = 0;
+                memcpy(&stock, &kVehicleFlyingCeiling, sizeof stock);
+                unsigned withStock = 0, finite = 0;
+                for (const Rec& r : recs)
+                {
+                    if (static_cast<unsigned>(code) + 4 > r.len) continue;
+                    uint32_t bits = 0;
+                    float v = 0;
+                    memcpy(&bits, r.b + code, sizeof bits);
+                    memcpy(&v, &bits, sizeof v);
+                    if (bits == stock) ++withStock;
+                    if (!std::isfinite(v) || v >= FLT_MAX) continue;
+                    ++finite;
+                    char key[96];
+                    if (!StringKey(veh, r.row, key, sizeof key)) strcpy_s(key, "(no key)");
+                    LOG("[table]   ceiling row %u %s holds %.1f%s", r.row, key, v,
+                        bits == stock ? "" : ", not the game's 1350.0, so a data mod has edited this row");
+                }
+                LOG_OK("[table] _maxAllowableHeight is record +0x%03X, taken from the loader's code. %u rows carry "
+                       "a ceiling there and %u of them hold the game's %.1f.",
+                       code, finite, withStock, kVehicleFlyingCeiling);
+                if (byValue != code)
+                    LOG("[table] the 1350.0 count %s, so vehicleinfo is not the game's own file. The code's offset is "
+                        "used.", byValue < 0 ? "matches no offset" : "points somewhere else");
+                g_veh = veh;
+                g_ceilingOff = code;
+                g_ceilingFromCode = true;
+            }
+            else if (byValue < 0)
+                LOG_ERR("[table] no offset in a vehicleinfo record holds %.1f on exactly %u rows, and the loader's "
+                        "code did not name the field either. Either the build moved or the ceiling changed, so do "
+                        "not take an offset from this run.",
                         kVehicleFlyingCeiling, kVehicleRowsWithCeiling);
             else
             {
+                const int off = byValue;
                 LOG_OK("[table] _maxAllowableHeight is record +0x%03X: %.1f on exactly %u rows.",
                        off, kVehicleFlyingCeiling, kVehicleRowsWithCeiling);
                 LogMatching(veh, recs, off, &kVehicleFlyingCeiling, 4, 8, "ceiling");
@@ -469,7 +558,22 @@ namespace fp::tables
             const uintptr_t def = DefAt(g_veh, r);
             uint32_t cur = 0;
             char key[96];
-            if (!def || !mem::Read32(def + g_ceilingOff, &cur) || cur != stock) continue;
+            if (!def || !mem::Read32(def + g_ceilingOff, &cur)) continue;
+            float was = 0;
+            memcpy(&was, &cur, sizeof was);
+            // With the field named by the loader, every row with a ceiling of
+            // its own is a flying mount, whatever a data mod set it to; ground
+            // mounts carry FLT_MAX. A row already at or above the setting is
+            // left alone, so this only ever raises.
+            if (g_ceilingFromCode ? (!std::isfinite(was) || was >= FLT_MAX || was >= value) : cur != stock)
+            {
+                if (g_ceilingFromCode && std::isfinite(was) && was < FLT_MAX && was >= value)
+                {
+                    if (!StringKey(g_veh, r, key, sizeof key)) strcpy_s(key, "(no key)");
+                    LOG("[ceiling] %s already allows %.1f, at or above the setting, so it is left alone.", key, was);
+                }
+                continue;
+            }
             if (!StringKey(g_veh, r, key, sizeof key)) strcpy_s(key, "(no key)");
             if (!WriteF32(def + g_ceilingOff, value))
             {
@@ -485,11 +589,14 @@ namespace fp::tables
             char want[32], got[32];
             Describe(value, want, sizeof want);
             Describe(back, got, sizeof got);
-            LOG_OK("[ceiling] %s raised from %.1f to %s (read back %s)", key, kVehicleFlyingCeiling, want, got);
+            LOG_OK("[ceiling] %s raised from %.1f to %s (read back %s)%s", key, was, want, got,
+                   cur == stock ? "" : ". That row did not hold the game's 1350.0, so a data mod had changed it");
             ++changed;
         }
         if (!changed)
-            LOG_ERR("[ceiling] no vehicleinfo row still held %.1f, so nothing was changed.", kVehicleFlyingCeiling);
+            LOG_ERR("[ceiling] %s, so nothing was changed.",
+                    g_ceilingFromCode ? "no vehicleinfo row has a ceiling below the setting"
+                                      : "no vehicleinfo row still held 1350.0");
         return changed;
     }
 

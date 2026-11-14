@@ -31,14 +31,16 @@ namespace fp::tables
     // second until it does, because the tables are not populated at load time.
     bool Probe();
 
-    // Write `value` over every vehicleinfo row whose _maxAllowableHeight is the
-    // stock flying ceiling, and log which rows changed. Returns the count, or
-    // -1 when the offset was never established, in which case nothing is
+    // Write `value` over every vehicleinfo row whose _maxAllowableHeight is a
+    // finite ceiling below it, and log which rows changed. Returns the count,
+    // or -1 when the offset was never established, in which case nothing is
     // written: guessing at the offset would corrupt an unrelated field.
     //
-    // Probe() must have run. Only the two flying mounts carry that value, so
-    // this cannot touch a ground mount by accident, and it is checked by
-    // reading the rows back.
+    // Probe() must have run. Ground mounts carry FLT_MAX, so only flying
+    // mounts are written, whatever value a data mod gave them, and each write
+    // is checked by reading the row back. When the offset came from the 1350.0
+    // count instead of the loader's code, only rows still holding 1350.0 are
+    // written.
     int SetFlyingCeiling(float value);
 
     // Give Blackstar the Wyvern's spawn duration of 0, so a Blackstar you get
@@ -96,4 +98,9 @@ namespace fp::tables
     // This is the one way of finding an offset that a mod editing the table's
     // data file cannot reach, which is why it is tried before the values.
     int LoaderFieldOffset(const char* table, const char* field);
+
+    // The same walk for a 4-byte field the loader reads inline, with
+    // `mov r8d,4` as the size. This is how _maxAllowableHeight is named, so a
+    // mod that edits vehicleinfo cannot take the ceiling away.
+    int LoaderF32Offset(const char* table, const char* field);
 }

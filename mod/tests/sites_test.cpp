@@ -94,7 +94,10 @@ static uint8_t* g_builtinTarget = nullptr;
 static char g_fakeMsgOk[96];
 static char g_fakeMsgTwo[96];
 static char g_fakeMsgThree[96];
-static uint8_t g_fakeLoader[160];
+static char g_fakeMsgFour[96];
+static char g_fakeMsgFive[96];
+static char g_fakeMsgSix[96];
+static uint8_t g_fakeLoader[320];
 // The two reader thunks a loader can call: the 8-byte one the walk wants, and
 // a 4-byte one it has to turn down.
 static uint8_t g_fakeThunk8[16];
@@ -131,6 +134,21 @@ static size_t EmitRead(uint8_t* p, uint32_t off, const uint8_t* reader)
     PutCall(p + 10, reader);
     PutCall(p + 25, reader);
     return sizeof bytes;
+}
+
+// The inline 4-byte read 2.05.00's vehicleinfo loader has:
+// lea rdx,[rsi+off]; mov rax,[rdi]; mov r8d,4; mov rcx,rdi; call [rax+0x28];
+// test al,al; jne. disp8 when `wide` is false, disp32 when it is true.
+static size_t EmitRead4(uint8_t* p, uint32_t off, bool wide)
+{
+    size_t n = 0;
+    p[n++] = 0x48; p[n++] = 0x8D;
+    if (wide) { p[n++] = 0x96; memcpy(p + n, &off, 4); n += 4; }
+    else      { p[n++] = 0x56; p[n++] = static_cast<uint8_t>(off); }
+    const uint8_t rest[] = { 0x48, 0x8B, 0x07, 0x41, 0xB8, 0x04, 0x00, 0x00, 0x00, 0x48, 0x8B, 0xCF,
+                             0xFF, 0x50, 0x28, 0x84, 0xC0, 0x75, 0x0C };
+    memcpy(p + n, rest, sizeof rest);
+    return n + sizeof rest;
 }
 
 // lea rcx,[rip+msg]
@@ -340,6 +358,30 @@ int main()
         Check(CountLines("no field read in front of it") >= 1, "that refusal said why");
 
         Check(fp::tables::LoaderFieldOffset("TestInfo", "_noSuchFieldAnywhere") == -1, "a field with no message is refused");
+
+        // The 4-byte walk names the ceiling. Both lea encodings, and the
+        // 8-byte walk has to refuse the same code, and the other way round.
+        snprintf(g_fakeMsgFour, sizeof g_fakeMsgFour, "TestInfo of %sD could not be read.", field);
+        snprintf(g_fakeMsgFive, sizeof g_fakeMsgFive, "TestInfo of %sE could not be read.", field);
+        snprintf(g_fakeMsgSix, sizeof g_fakeMsgSix, "TestInfo of %sF could not be read.", field);
+        char fieldD[64], fieldE[64], fieldF[64];
+        snprintf(fieldD, sizeof fieldD, "%sD", field);
+        snprintf(fieldE, sizeof fieldE, "%sE", field);
+        snprintf(fieldF, sizeof fieldF, "%sF", field);
+        uint8_t* s4 = g_fakeLoader + 160;
+        EmitMsgLea(s4 + EmitRead4(s4, 0x3C, false), g_fakeMsgFour);
+        Check(fp::tables::LoaderF32Offset("TestInfo", fieldD) == 0x3C, "the inline 4-byte read names the offset, disp8");
+        Check(fp::tables::LoaderFieldOffset("TestInfo", fieldD) == -1, "the 8-byte walk refuses a 4-byte read");
+        uint8_t* s5 = g_fakeLoader + 208;
+        EmitMsgLea(s5 + EmitRead4(s5, 0x19C, true), g_fakeMsgFive);
+        Check(fp::tables::LoaderF32Offset("TestInfo", fieldE) == 0x19C, "the inline 4-byte read names the offset, disp32");
+        Check(fp::tables::LoaderF32Offset("TestInfo", field) == -1, "the 4-byte walk refuses an 8-byte read");
+        Check(CountLines("no 4-byte field read in front of it") >= 1, "that refusal said why");
+        uint8_t* s6 = g_fakeLoader + 256;
+        const size_t n6 = EmitRead4(s6, 0x40, false);
+        s6[n6] = 0x90;
+        EmitMsgLea(s6 + n6 + 1, g_fakeMsgSix);
+        Check(fp::tables::LoaderF32Offset("TestInfo", fieldF) == -1, "a 4-byte read that does not end at the message is refused");
     }
 
     // PickSpawnDuration decides where Blackstar's spawn duration lives from a

@@ -19,8 +19,10 @@ file touched and nothing written to a save.
 
 - **The ceiling.** `vehicleinfo` holds a maximum height per mount: 1350 on
   Blackstar and the Wyvern, none on the other 32. The plugin resolves the table
-  by name at startup, writes your setting over those two rows and logs what it
-  read back.
+  by name at startup, finds the field through the game's own table loader,
+  writes your setting over every row that has a ceiling and logs what it read
+  back. A data mod that changes the Wyvern's or Blackstar's row in
+  `vehicleinfo` still gets its ceiling raised.
 - **No-fly zones.** Every region carries a list of mount categories it turns
   away. One routine answers whether the region you stand in, or any region
   containing it, lists your mount. That answer is what dismounts a flyer high up

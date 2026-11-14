@@ -148,6 +148,30 @@ namespace fp::sig
     inline constexpr unsigned    kOff_FieldReadCall_E8    = 0x0A; // the call to the reader thunk
     inline constexpr unsigned    kLen_FieldReadCall       = 0x1E; // the message load follows at once
     inline constexpr const char* kSig_ReaderThunk8 = "48 8B 01 41 B8 08 00 00 00 48 FF 60 ??";
+    // A 4-byte field still reads inline on 2.05.00 (exe 1.0.0.3663), with the
+    // size in r8d and the message loaded into rax on the failure path. The
+    // vehicleinfo loader reads _maxAllowableHeight this way:
+    //
+    //     0x17954D0  48 8D 56 3C           lea  rdx, [rsi+0x3C]   the offset
+    //     0x17954D4  48 8B 07              mov  rax, [rdi]
+    //     0x17954D7  41 B8 04 00 00 00     mov  r8d, 4            the size
+    //     0x17954DD  48 8B CF              mov  rcx, rdi
+    //     0x17954E0  FF 50 28              call [rax+0x28]
+    //     0x17954E3  84 C0                 test al, al
+    //     0x17954E5  75 0C                 jne  short ok
+    //     0x17954E7  48 8D 05 ...          lea  rax, [rip+message]
+    //
+    // Both encodings of the lea are accepted, disp8 and disp32, because which
+    // one the compiler picks depends only on how far into the record the
+    // field sits.
+    inline constexpr const char* kSig_FieldRead4Disp8 =
+        "48 8D 56 ?? 48 8B 07 41 B8 04 00 00 00 48 8B CF FF 50 28 84 C0 75 ??";
+    inline constexpr unsigned    kLen_FieldRead4Disp8 = 0x17;
+    inline constexpr const char* kSig_FieldRead4Disp32 =
+        "48 8D 96 ?? ?? ?? ?? 48 8B 07 41 B8 04 00 00 00 48 8B CF FF 50 28 84 C0 75 ??";
+    inline constexpr unsigned    kLen_FieldRead4Disp32 = 0x1A;
+    inline constexpr const char* kStr_VehicleInfoMsg   = "VehicleInfo";
+    inline constexpr const char* kField_MaxAllowableHeight = "_maxAllowableHeight";
     inline constexpr const char* kStr_CharacterInfoMsg = "CharacterInfo";
     inline constexpr const char* kField_SpawnDuration  = "_callMercenarySpawnDuration";
     inline constexpr const char* kField_CallCoolTime   = "_callMercenaryCoolTime";
