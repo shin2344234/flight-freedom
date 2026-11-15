@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include <cstdarg>
 #include <cstdio>
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
@@ -25,13 +26,20 @@ namespace fp::Log
     // held d-pad direction registering as held. Nothing is dropped or capped;
     // the writer just does the waiting instead of the game.
     //
-    // It flushes whenever it empties the queue, so an idle session is on disk
-    // within milliseconds and a crash loses at most what was written in the
-    // time one batch takes. Under load it batches, which is the point.
+    // It writes and flushes ten times a second, and at once when an error
+    // line arrives, so a crash loses at most a tenth of a second of info
+    // lines and never the error that came before it.
+    //
+    // Up to 1.1.19 none of this ran. Write still did its own fputs and
+    // fflush on the calling thread and never filled the queue, so the writer
+    // waited on an empty queue for the whole session while the roof check
+    // and the cooldown detours flushed from game threads.
     static std::deque<std::string>  g_queue;
     static std::condition_variable  g_wake;
     static HANDLE                   g_writer  = nullptr;
     static bool                     g_stopping = false;
+    static bool                     g_urgent   = false;   // an error line is waiting
+    static constexpr auto           kFlushEvery = std::chrono::milliseconds(100);
 
     static DWORD WINAPI WriterMain(LPVOID)
     {
@@ -40,8 +48,10 @@ namespace fp::Log
         {
             {
                 std::unique_lock<std::mutex> lk(g_mu);
-                g_wake.wait(lk, [] { return g_stopping || !g_queue.empty(); });
+                g_wake.wait_for(lk, kFlushEvery, [] { return g_stopping || g_urgent; });
                 if (g_queue.empty() && g_stopping) return 0;
+                g_urgent = false;
+                if (g_queue.empty()) continue;
                 batch.swap(g_queue);
             }
             if (g_file)
@@ -76,20 +86,34 @@ namespace fp::Log
 
         std::string line = "[" + Stamp() + "] [" + level + "] " + msg;
 
-        std::lock_guard<std::mutex> lk(g_mu);
-        g_recent.push_back(line);
-        if (g_recent.size() > kKeep) g_recent.pop_front();
-        if (g_file)
+        const bool isError = level[0] == 'e';
+        bool wake = false;
         {
-            fputs(line.c_str(), g_file);
-            fputc('\n', g_file);
-            fflush(g_file);
+            std::lock_guard<std::mutex> lk(g_mu);
+            g_recent.push_back(line);
+            if (g_recent.size() > kKeep) g_recent.pop_front();
+            if (g_writer)
+            {
+                // The writer owns the file from here on. The calling thread
+                // may be the game's, so it only queues.
+                g_queue.push_back(std::move(line));
+                if (isError) { g_urgent = true; wake = true; }
+            }
+            else if (g_file)
+            {
+                // Startup before StartWriter, or after Shutdown has joined
+                // the writer. Either way this is the plugin's own thread.
+                fputs(line.c_str(), g_file);
+                fputc('\n', g_file);
+                fflush(g_file);
+            }
+            else
+            {
+                // Nothing is dropped before the file is claimed.
+                g_pending.push_back(std::move(line));
+            }
         }
-        else
-        {
-            g_pending.push_back(line);
-            if (g_pending.size() > kKeep) g_pending.pop_front();
-        }
+        if (wake) g_wake.notify_one();
     }
 
     // Keep the last five sessions as well as the live one. A report needs the

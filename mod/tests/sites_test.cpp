@@ -434,6 +434,45 @@ int main()
         }
     }
 
+    // Once the writer runs, a line is queued and the writer puts it in the
+    // file. Up to 1.1.19 the writer never wrote anything and Write flushed on
+    // the caller's thread, so this checks that queued lines do reach disk,
+    // in order, info within the flush interval and an error at once.
+    {
+        auto onDisk = [](const char* needle) -> long
+        {
+            FILE* f = _wfopen(fp::Paths::File(L"SitesTest.log").c_str(), L"rb");
+            if (!f) return -1;
+            std::string all;
+            char buf[4096];
+            size_t n;
+            while ((n = fread(buf, 1, sizeof buf, f)) > 0) all.append(buf, n);
+            fclose(f);
+            const size_t at = all.find(needle);
+            return at == std::string::npos ? -1 : static_cast<long>(at);
+        };
+        auto waitFor = [&](const char* needle) -> long
+        {
+            for (int i = 0; i < 100; ++i)
+            {
+                const long at = onDisk(needle);
+                if (at >= 0) return at;
+                Sleep(10);
+            }
+            return -1;
+        };
+        fp::Log::StartWriter();
+        LOG("[test] queued info line one");
+        LOG("[test] queued info line two");
+        LOG_ERR("[test] queued error line");
+        const long e = waitFor("queued error line");
+        const long one = waitFor("queued info line one");
+        const long two = waitFor("queued info line two");
+        Check(one >= 0 && two >= 0, "lines logged after StartWriter reach the file");
+        Check(e >= 0, "an error line logged after StartWriter reaches the file");
+        Check(one >= 0 && two > one && e > two, "the writer keeps them in the order they were logged");
+    }
+
     std::vector<std::string> lines;
     fp::Log::Snapshot(lines, 400);
     printf("\n--- log ---\n");
