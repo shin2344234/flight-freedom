@@ -563,11 +563,15 @@ namespace fp::tables
             memcpy(&was, &cur, sizeof was);
             // With the field named by the loader, every row with a ceiling of
             // its own is a flying mount, whatever a data mod set it to; ground
-            // mounts carry FLT_MAX. A row already at or above the setting is
-            // left alone, so this only ever raises.
-            if (g_ceilingFromCode ? (!std::isfinite(was) || was >= FLT_MAX || was >= value) : cur != stock)
+            // mounts carry FLT_MAX. A row holding the game's 1350.0 takes the
+            // setting whatever it is, so a Ceiling below 1350 still lowers it.
+            // A row a data mod changed is only ever raised: one already at or
+            // above the setting is left alone. 1.1.19 applied that to the
+            // game's own rows too, and Ceiling=1000 did nothing.
+            const bool modded = cur != stock;
+            if (g_ceilingFromCode ? (!std::isfinite(was) || was >= FLT_MAX || (modded && was >= value)) : modded)
             {
-                if (g_ceilingFromCode && std::isfinite(was) && was < FLT_MAX && was >= value)
+                if (g_ceilingFromCode && modded && std::isfinite(was) && was < FLT_MAX && was >= value)
                 {
                     if (!StringKey(g_veh, r, key, sizeof key)) strcpy_s(key, "(no key)");
                     LOG("[ceiling] %s already allows %.1f, at or above the setting, so it is left alone.", key, was);
@@ -589,7 +593,7 @@ namespace fp::tables
             char want[32], got[32];
             Describe(value, want, sizeof want);
             Describe(back, got, sizeof got);
-            LOG_OK("[ceiling] %s raised from %.1f to %s (read back %s)%s", key, was, want, got,
+            LOG_OK("[ceiling] %s %s from %.1f to %s (read back %s)%s", key, value < was ? "lowered" : "raised", was, want, got,
                    cur == stock ? "" : ". That row did not hold the game's 1350.0, so a data mod had changed it");
             ++changed;
         }

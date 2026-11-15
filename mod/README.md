@@ -59,8 +59,8 @@ mount while it's on the ground".
 The ceiling is a float in the loaded `vehicleinfo` table, 1350 on Blackstar
 and the Wyvern and none on every other mount. The plugin resolves the table
 by name at startup, finds the field through the game's own table loader,
-writes the new value over every row that has a ceiling below it and reads it
-back. A data mod that edits the Wyvern's or Blackstar's `vehicleinfo` row
+writes the new value over both rows that hold the game's 1350, higher or
+lower, and over any other row with a ceiling below it, then reads it back. A data mod that edits the Wyvern's or Blackstar's `vehicleinfo` row
 changes the value but cannot move the field, so those mounts are still
 raised. A row a data mod already set above your `Ceiling` is left alone.
 
