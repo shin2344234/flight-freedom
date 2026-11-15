@@ -154,9 +154,9 @@ reached from the shape of the file, and Microsoft passed the same plugin on
 its own and inside the full archive. Twenty releases is still a short
 history, so the figures stay here one release at a time instead of
 collapsing into a single score. 1.1.19 reports:
-[the plugin](https://www.virustotal.com/gui/file/946ae05f6f63183c996a8a5c5eca2b3c333124bb25e337649c5c0497c02fedc5),
-[the DMM archive](https://www.virustotal.com/gui/file/932cd4419c4ccf0b15f97e5c02ff08c1c5ddc528235dfa1adc39b0a6b52fff45) and
-[the full archive](https://www.virustotal.com/gui/file/33eb9aaebec5c6f54633af4a1559dd9445a9d41260c56bc6fcf53301f71ea7c0).
+[the plugin](https://www.virustotal.com/gui/file/a154831c5adb3530a6db46d5161c00ee305b6b0b61e310ff2390f6cd71c0e32a),
+[the DMM archive](https://www.virustotal.com/gui/file/f25e9b671b2b0165fe0824cceee55aa056f2cb07a74ea2951c8cfebb0cb09cc4) and
+[the full archive](https://www.virustotal.com/gui/file/2b14a5a2e218782a7f242f14dac7f2a24c859b5c93c5520bee143617081a8b22).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -176,11 +176,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.19:
+SHA-256 for 1.1.20:
 
-    932cd4419c4ccf0b15f97e5c02ff08c1c5ddc528235dfa1adc39b0a6b52fff45  FlightFreedom-1.1.19-DMM.zip
-    33eb9aaebec5c6f54633af4a1559dd9445a9d41260c56bc6fcf53301f71ea7c0  FlightFreedom-1.1.19.zip
-    946ae05f6f63183c996a8a5c5eca2b3c333124bb25e337649c5c0497c02fedc5  FlightFreedom.asi
+    f25e9b671b2b0165fe0824cceee55aa056f2cb07a74ea2951c8cfebb0cb09cc4  FlightFreedom-1.1.20-DMM.zip
+    2b14a5a2e218782a7f242f14dac7f2a24c859b5c93c5520bee143617081a8b22  FlightFreedom-1.1.20.zip
+    a154831c5adb3530a6db46d5161c00ee305b6b0b61e310ff2390f6cd71c0e32a  FlightFreedom.asi
 
 ## Building
 
