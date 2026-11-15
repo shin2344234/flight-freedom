@@ -1,5 +1,7 @@
 #include "game/mem.h"
 
+#include "core/log.h"
+
 #include <cstring>
 #include <vector>
 
@@ -45,8 +47,16 @@ namespace fp::mem
         // and wait forever once the first thread's setup reset it.
         SRWLOCK g_regLock = SRWLOCK_INIT;
         volatile LONG g_faults = 0;
+        volatile LONG g_regLogged = 0;
 
-        void RegLock()   { AcquireSRWLockExclusive(&g_regLock); }
+        void RegLock()
+        {
+            // Once per session, so a play test can see the cache was used.
+            // Only probe-mode dumps and the [sites] hooks reach it.
+            if (!g_regLogged && InterlockedExchange(&g_regLogged, 1) == 0)
+                LOG("[mem] region cache first used, SRWLOCK (thread %lu)", GetCurrentThreadId());
+            AcquireSRWLockExclusive(&g_regLock);
+        }
         void RegUnlock() { ReleaseSRWLockExclusive(&g_regLock); }
     }
 
