@@ -107,9 +107,11 @@ namespace fp::Log
                 fputc('\n', g_file);
                 fflush(g_file);
             }
-            else
+            else if (!g_claimed)
             {
-                // Nothing is dropped before the file is claimed.
+                // Nothing is dropped before the file is claimed. Once it is
+                // claimed and the open failed, nothing will ever drain this,
+                // so the line goes no further than g_recent.
                 g_pending.push_back(std::move(line));
             }
         }
