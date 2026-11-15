@@ -31,6 +31,13 @@ file touched and nothing written to a save.
 - **Summoning in the Abyss.** The summon validator asks that same routine and
   refuses with "Cannot summon in this area." One byte makes it skip that
   refusal, so summoning works underground even with the zones kept.
+- **Summoning under a roof.** The summon validator also looks straight up from
+  you and asks whether you are standing on a roof, and for the Wyvern a refusal
+  there reads "Cannot summon in this location." One jump makes it skip that
+  refusal. The plugin hooks the test as well, only to log it: each summon
+  writes a `[roof]` line to `FlightFreedom.log` saying the spot passed, or
+  naming the refusal and saying `RoofSummon` let the summon through. If you
+  still get that message, those lines show whether this test was the reason.
 - **Flying over towns.** A separate rule, "in town and not above a road within
   20", dismounts you for flying low across a town off the road. Three bytes
   make the road half always answer yes. It reaches one condition row in the
@@ -142,9 +149,9 @@ the 13 November update, got 0 of 70 on the plugin and 0 of 68 on both
 archives. Nineteen releases is still a short history, so the figures stay here
 one release at a time instead of collapsing into a single score. 1.1.18
 reports:
-[the plugin](https://www.virustotal.com/gui/file/d8db35a95705d89a771978722cb9ef131ec3c99bb996311cbc509cd6bfb3e949),
-[the DMM archive](https://www.virustotal.com/gui/file/8f81eb173250c920c516642c63aee72f3913bf78f9295059d6df596c4aa023c3) and
-[the full archive](https://www.virustotal.com/gui/file/edfc2db4f0ca14c5312dcf098f7fd9a27ed217c46c749ea4864cdeef4c614732).
+[the plugin](https://www.virustotal.com/gui/file/946ae05f6f63183c996a8a5c5eca2b3c333124bb25e337649c5c0497c02fedc5),
+[the DMM archive](https://www.virustotal.com/gui/file/932cd4419c4ccf0b15f97e5c02ff08c1c5ddc528235dfa1adc39b0a6b52fff45) and
+[the full archive](https://www.virustotal.com/gui/file/33eb9aaebec5c6f54633af4a1559dd9445a9d41260c56bc6fcf53301f71ea7c0).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -164,11 +171,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.18:
+SHA-256 for 1.1.19:
 
-    8f81eb173250c920c516642c63aee72f3913bf78f9295059d6df596c4aa023c3  FlightFreedom-1.1.18-DMM.zip
-    edfc2db4f0ca14c5312dcf098f7fd9a27ed217c46c749ea4864cdeef4c614732  FlightFreedom-1.1.18.zip
-    d8db35a95705d89a771978722cb9ef131ec3c99bb996311cbc509cd6bfb3e949  FlightFreedom.asi
+    932cd4419c4ccf0b15f97e5c02ff08c1c5ddc528235dfa1adc39b0a6b52fff45  FlightFreedom-1.1.19-DMM.zip
+    33eb9aaebec5c6f54633af4a1559dd9445a9d41260c56bc6fcf53301f71ea7c0  FlightFreedom-1.1.19.zip
+    946ae05f6f63183c996a8a5c5eca2b3c333124bb25e337649c5c0497c02fedc5  FlightFreedom.asi
 
 ## Building
 

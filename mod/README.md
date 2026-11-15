@@ -118,6 +118,14 @@ you are on a roof, and it tries eight spots around you before it gives up.
 For the Wyvern the screen says "Cannot summon in this location." whatever
 the reason was. `RoofSummon` jumps past that test.
 
+The plugin also hooks that test to write to the log, and never changes its
+answer. Each summon adds a `[roof]` line to `FlightFreedom.log`. It says the
+spot passed, or names the refusal, something overhead or you standing on a
+roof, and says that `RoofSummon` let the summon through. With `RoofSummon=0`
+the eight retries are logged too, at most one line per kind every 500 ms. If
+you still get "Cannot summon in this location.", the `[roof]` lines show
+whether this test was the reason.
+
 Towns are a separate rule, and a narrower one. The condition reads "in town
 and not above a road within 20", so riding through on the road is fine and
 flying low across the rooftops is not. `TownFlight` makes the road half
