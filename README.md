@@ -127,7 +127,8 @@ the trampoline's relocation is covered.
 
 ## Antivirus
 
-Nothing has been flagged yet. For 1.1.0 the plugin scored 0 of 66 on
+The plugin has never been flagged, and until 1.1.19 neither had an archive.
+For 1.1.0 the plugin scored 0 of 66 on
 VirusTotal, the DMM archive 0 of 66 and the full archive 0 of 68. All three
 1.1.1 files scored 0 of 68. For 1.1.2 the plugin scored 0 of 70, the DMM
 archive 0 of 67 and the full archive 0 of 68. For 1.1.3 the plugin scored 0 of
@@ -146,9 +147,13 @@ and 0 of 68 on both archives, and 1.1.16 got 0 of 70 on the plugin and 0 of
 67 on both. 1.1.17, built for the 6 November patch, scored 0 of 71 on the
 plugin, 0 of 67 on the DMM archive and 0 of 68 on the full one. 1.1.18, for
 the 13 November update, got 0 of 70 on the plugin and 0 of 68 on both
-archives. Nineteen releases is still a short history, so the figures stay here
-one release at a time instead of collapsing into a single score. 1.1.18
-reports:
+archives. 1.1.19 got 0 of 71 on the plugin, 0 of 68 on the full archive and
+1 of 67 on the DMM archive, where Microsoft answered
+Trojan:Script/Wacatac.C!ml. The !ml is Microsoft's mark for a verdict a model
+reached from the shape of the file, and Microsoft passed the same plugin on
+its own and inside the full archive. Twenty releases is still a short
+history, so the figures stay here one release at a time instead of
+collapsing into a single score. 1.1.19 reports:
 [the plugin](https://www.virustotal.com/gui/file/946ae05f6f63183c996a8a5c5eca2b3c333124bb25e337649c5c0497c02fedc5),
 [the DMM archive](https://www.virustotal.com/gui/file/932cd4419c4ccf0b15f97e5c02ff08c1c5ddc528235dfa1adc39b0a6b52fff45) and
 [the full archive](https://www.virustotal.com/gui/file/33eb9aaebec5c6f54633af4a1559dd9445a9d41260c56bc6fcf53301f71ea7c0).
