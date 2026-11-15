@@ -39,23 +39,15 @@ namespace fp::mem
         struct Region { uintptr_t base, end; DWORD when; bool ok; };
         Region g_regs[256];
         int    g_regN = 0, g_regNext = 0;
-        CRITICAL_SECTION g_regCs;
-        LONG   g_regCsReady = 0;
+        // An SRWLOCK is ready as declared. The critical section this replaced
+        // was set up lazily behind a flag any waiting thread could flip to
+        // ready, so a second game thread could enter it while still zeroed
+        // and wait forever once the first thread's setup reset it.
+        SRWLOCK g_regLock = SRWLOCK_INIT;
         volatile LONG g_faults = 0;
 
-        void RegLock()
-        {
-            if (InterlockedCompareExchange(&g_regCsReady, 1, 0) == 0)
-                InitializeCriticalSection(&g_regCs);
-            while (InterlockedCompareExchange(&g_regCsReady, 2, 2) != 2)
-            {
-                // First initializer publishes state 2 once the CS is ready.
-                if (InterlockedCompareExchange(&g_regCsReady, 2, 1) == 1) break;
-                Sleep(0);
-            }
-            EnterCriticalSection(&g_regCs);
-        }
-        void RegUnlock() { LeaveCriticalSection(&g_regCs); }
+        void RegLock()   { AcquireSRWLockExclusive(&g_regLock); }
+        void RegUnlock() { ReleaseSRWLockExclusive(&g_regLock); }
     }
 
     long FaultCount() { return g_faults; }
