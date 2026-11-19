@@ -152,9 +152,10 @@ archives. 1.1.19 got 0 of 71 on the plugin, 0 of 68 on the full archive and
 Trojan:Script/Wacatac.C!ml. The !ml is Microsoft's mark for a verdict a model
 reached from the shape of the file, and Microsoft passed the same plugin on
 its own and inside the full archive. 1.1.20 is clean on all three files again, 0 of 71 on the
-plugin, 0 of 67 on the DMM archive and 0 of 67 on the full one. Twenty-one
-releases is still a short history, so the figures stay here one release at a time instead of
-collapsing into a single score. 1.1.20 reports:
+plugin, 0 of 67 on the DMM archive and 0 of 67 on the full one. 1.1.21 is
+clean as well, 0 of 62 on the plugin, 0 of 67 on the DMM archive and 0 of 66
+on the full one. Twenty-two releases is still a short history, so the figures stay here one release at a time instead of
+collapsing into a single score. 1.1.21 reports:
 [the plugin](https://www.virustotal.com/gui/file/a3bfb401c0a8eb97b59a3638f1d51a578b3731ade88e14ccb24ad37c4d86bfcd),
 [the DMM archive](https://www.virustotal.com/gui/file/b24287ba38e41dfe9346522cb166493549bec6df9893d0739e756cb13eec57bb) and
 [the full archive](https://www.virustotal.com/gui/file/39e709c318a68d94cff126649c0eabbd827345716893dcdaaf16ced566bda810).
