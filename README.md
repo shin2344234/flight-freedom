@@ -1,6 +1,6 @@
 # Flight Freedom
 
-Removes the flying ceiling and the no-fly zones in Crimson Desert 2.05.00, lets
+Removes the flying ceiling and the no-fly zones in Crimson Desert 2.05.01, lets
 a mount be summoned inside the Abyss, stops towns throwing you off in the air,
 keeps Blackstar where you leave him, and takes away his hour-long summon
 cooldown.
@@ -155,9 +155,9 @@ its own and inside the full archive. 1.1.20 is clean on all three files again, 0
 plugin, 0 of 67 on the DMM archive and 0 of 67 on the full one. Twenty-one
 releases is still a short history, so the figures stay here one release at a time instead of
 collapsing into a single score. 1.1.20 reports:
-[the plugin](https://www.virustotal.com/gui/file/a154831c5adb3530a6db46d5161c00ee305b6b0b61e310ff2390f6cd71c0e32a),
-[the DMM archive](https://www.virustotal.com/gui/file/f25e9b671b2b0165fe0824cceee55aa056f2cb07a74ea2951c8cfebb0cb09cc4) and
-[the full archive](https://www.virustotal.com/gui/file/2b14a5a2e218782a7f242f14dac7f2a24c859b5c93c5520bee143617081a8b22).
+[the plugin](https://www.virustotal.com/gui/file/a3bfb401c0a8eb97b59a3638f1d51a578b3731ade88e14ccb24ad37c4d86bfcd),
+[the DMM archive](https://www.virustotal.com/gui/file/b24287ba38e41dfe9346522cb166493549bec6df9893d0739e756cb13eec57bb) and
+[the full archive](https://www.virustotal.com/gui/file/39e709c318a68d94cff126649c0eabbd827345716893dcdaaf16ced566bda810).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -177,11 +177,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.20:
+SHA-256 for 1.1.21:
 
-    f25e9b671b2b0165fe0824cceee55aa056f2cb07a74ea2951c8cfebb0cb09cc4  FlightFreedom-1.1.20-DMM.zip
-    2b14a5a2e218782a7f242f14dac7f2a24c859b5c93c5520bee143617081a8b22  FlightFreedom-1.1.20.zip
-    a154831c5adb3530a6db46d5161c00ee305b6b0b61e310ff2390f6cd71c0e32a  FlightFreedom.asi
+    b24287ba38e41dfe9346522cb166493549bec6df9893d0739e756cb13eec57bb  FlightFreedom-1.1.21-DMM.zip
+    39e709c318a68d94cff126649c0eabbd827345716893dcdaaf16ced566bda810  FlightFreedom-1.1.21.zip
+    a3bfb401c0a8eb97b59a3638f1d51a578b3731ade88e14ccb24ad37c4d86bfcd  FlightFreedom.asi
 
 ## Building
 
