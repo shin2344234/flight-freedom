@@ -45,6 +45,7 @@ All in `FlightFreedom.ini`, section `[settings]`.
 | `BlockedSummon` | `1` | The summon validator never refuses for something solid close around you. That check is what says "You cannot do that here." on the Abyss Nexus, to every mount. |
 | `RoofSummon` | `1` | The summon validator never refuses for a ceiling over you or a roof under you. For the Wyvern that refusal says "Cannot summon in this location." |
 | `TownFlight` | `1` | Flying low over a town off the road never dismounts you. |
+| `HideMapNoFly` | `0` | `1` stops the world map painting towns red while you ride Blackstar or a war machine. It changes only what the map draws. The map uses one overlay for Blackstar and the war machines, so they lose the red together. |
 | `BlackstarStays` | `1` | Blackstar stays where you get off it instead of flying away about 30 seconds later. `0` keeps the game's behaviour. |
 | `BlackstarCooldown` | `0` | Blackstar's summon cooldown in seconds, an hour in the game's table. `0` removes it, a cooldown already running included. `-1` leaves the table alone. Any other number is that many seconds; only `0` has been played. |
 | `Probe` | `0` | Research mode. Hooks every mount condition, reads `[sites]`, `[patch]` and `[watch]`, and makes the log large. |

@@ -73,6 +73,7 @@ namespace
         bool  blockedSummon;  // validator never refuses a summon for something in the way
         bool  roofSummon;     // validator never refuses a summon for a roof or a ceiling
         bool  townFlight;     // the town dismount condition can never be true
+        bool  hideMapNoFly;   // the world map paints no town red while riding a flyer
         // Refuse the takeoff action a landed Blackstar's chart starts. Up to
         // 1.1.5 this wrote the spawn duration in characterinfo, which was
         // shown to do nothing; any number other than 0 now just means on.
@@ -98,6 +99,7 @@ namespace
         s.blockedSummon  = ReadSetting(L"BlockedSummon", L"1") != 0.0f;
         s.roofSummon     = ReadSetting(L"RoofSummon", L"1") != 0.0f;
         s.townFlight     = ReadSetting(L"TownFlight", L"1") != 0.0f;
+        s.hideMapNoFly   = ReadSetting(L"HideMapNoFly", L"0") != 0.0f;
         s.blackstarStays = ReadSetting(L"BlackstarStays", L"1");
         s.blackstarCooldown = ReadSetting(L"BlackstarCooldown", L"0");
         s.groundCheck    = ReadSetting(L"GroundCheck", L"0");
@@ -135,10 +137,10 @@ namespace
         const Settings s = ReadSettings();
 
         LOG("[mod] %s %s for Crimson Desert 2.05.01 (exe 1.0.0.3732). Settings: Ceiling=%s NoFlyZones=%d "
-            "AbyssSummon=%d PlatformSummon=%d BlockedSummon=%d RoofSummon=%d TownFlight=%d BlackstarStays=%d BlackstarCooldown=%d Probe=%d", FP_NAME,
+            "AbyssSummon=%d PlatformSummon=%d BlockedSummon=%d RoofSummon=%d TownFlight=%d HideMapNoFly=%d BlackstarStays=%d BlackstarCooldown=%d Probe=%d", FP_NAME,
             FP_VERSION, s.ceiling == 0.0f ? "0 (game's own)" : (s.ceiling < 0.0f ? "-1 (none)" : "custom"),
             s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.platformSummon ? 1 : 0, s.blockedSummon ? 1 : 0, s.roofSummon ? 1 : 0,
-            s.townFlight ? 1 : 0,
+            s.townFlight ? 1 : 0, s.hideMapNoFly ? 1 : 0,
             static_cast<int>(s.blackstarStays), static_cast<int>(s.blackstarCooldown), s.probe ? 1 : 0);
         if (s.oldLanded)
             LOG("[mod] LandedTimeout is set in the ini and is ignored. It never reached a timer: it wrote Blackstar's "
@@ -191,6 +193,19 @@ namespace
         else
             LOG("[patch] TownFlight is 0: flying low over a town off the road will dismount you, which is "
                 "the game's own behaviour.");
+        // Only what the world map draws. Nothing the game decides reads it.
+        if (s.hideMapNoFly)
+        {
+            if (fp::sites::ApplyPatch(fp::sig::kPatch_HideMapNoFly.name, fp::sig::kPatch_HideMapNoFly.rva,
+                                      fp::sig::kPatch_HideMapNoFly.orig, fp::sig::kPatch_HideMapNoFly.repl,
+                                      fp::sig::kPatch_HideMapNoFly.len, fp::sig::kPatch_HideMapNoFly.ctx,
+                                      fp::sig::kPatch_HideMapNoFly.ctxBack))
+                LOG("[map] HideMapNoFly is 1: the world map paints no town red while you ride Blackstar or a "
+                    "war machine.");
+        }
+        else
+            LOG("[map] HideMapNoFly is 0: the world map still paints towns red while you ride Blackstar or a "
+                "war machine, as the game does.");
 
         if (s.blackstarStays != 0.0f)
         {

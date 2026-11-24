@@ -415,6 +415,32 @@ namespace fp::sig
     inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x24B39C0, kTownFlight_Orig, kTownFlight_Repl, 3,
                                                      kTownFlight_Ctx, 0 };
 
+    // The red over towns on the world map is the map's own picture of the
+    // town rule and reads none of the code above, so it stays with every
+    // patch applied. worldmapview.html (pack group 0012) declares it as
+    // #WorldmapRestrictedAreaTown, script
+    // UIGamePlayControlCommon_MapRestrictedArea, restricted-area-type="Town",
+    // check-vehicle-typename-list="WarMachine CarmabirdSaurusWarMachine
+    // Dragon". The control's init (vtable slot 1, +0xFBFBD0 on 3732) builds
+    // eight region bitmasks at +0x2D8 from the region rows whose byte +0xE is
+    // set, and hands the shader eight _mapWantedRegionBitMask params at
+    // +0x2C8. Its refresh (+0xFC0A60, reached from slot 41) calls +0xFC0D40,
+    // which sets +0x302 when the player rides a vehicle whose type is on that
+    // list, then copies the masks into the params if +0x302 is set and writes
+    // zeros if not. +0xFC0AFF is that `je` on +0x302. Always jumping writes
+    // zeros, so no town is painted red whatever is ridden. The other
+    // restricted-area type, GamePlayTriggerInfo, is the `jne` above it and
+    // is left alone, and so is the map's warning text.
+    inline constexpr uint8_t kHideMapNoFly_Orig[] = { 0x74, 0x3B };      // je +0x3B
+    inline constexpr uint8_t kHideMapNoFly_Repl[] = { 0xEB, 0x3B };      // jmp +0x3B
+    // movzx eax,byte [rdi+0x303]; test al,al; jne; mov rcx,rdi; call <the
+    // ride check>; mov eax,[rdi+0x2D0]; cmp [rdi+0x302],bl; je; test eax,eax; je
+    inline constexpr const char* kHideMapNoFly_Ctx =
+        "0F B6 87 03 03 00 00 84 C0 0F 85 ?? ?? ?? ?? 48 8B CF E8 ?? ?? ?? ?? "
+        "8B 87 D0 02 00 00 38 9F 02 03 00 00 74 3B 85 C0 0F 84";
+    inline constexpr BytePatch kPatch_HideMapNoFly = { "HideMapNoFly", 0xFC0AFF, kHideMapNoFly_Orig, kHideMapNoFly_Repl, 2,
+                                                       kHideMapNoFly_Ctx, 35 };
+
     // --- Blackstar's takeoff (BlackstarStays) --------------------------------
     // Every action an AI chart starts goes through one function (+0x2391FD0
     // on exe 3576, +0x2391280 on 3527, +0x238D940 on 3479, +0x238D990 on 3462, +0x238D680 on 3460, +0x2389F50 on 3446, +0x2388DA0 on 3424, +0x2387B10 on 3392, +0x21C0990 on 2.03.02, +0x21C0940 on 2.03.01, +0x21C0930 on
