@@ -18,38 +18,48 @@ namespace fp::cooldown
         LookupFn  g_lookup    = nullptr;
         uintptr_t g_errGlobal = 0;
         unsigned  g_charKeyOff = 0;
-        volatile long g_key = -1;
-        volatile long g_passed = 0;
-        volatile ULONGLONG g_lastLog = 0;
+        // One characterinfo key per mount, -1 until its row has been read.
+        struct Mount
+        {
+            const char*        name;
+            volatile long      key;
+            volatile long      passed;
+            volatile ULONGLONG lastLog;
+        };
+        Mount g_mounts[kMountCount] = { { "Blackstar", -1, 0, 0 }, { "Skystreaker", -1, 0, 0 } };
 
         uint32_t* __fastcall CheckDetour(void* component, uint32_t* err, uint64_t mount)
         {
             uint32_t* out = g_original(component, err, mount);
-            const long key = g_key;
+            if (g_mounts[kBlackstar].key < 0 && g_mounts[kSkystreaker].key < 0) return out;
             uint32_t coolErr = 0;
-            if (key < 0 || !out || !*out || !mem::Read32(g_errGlobal, &coolErr) || *out != coolErr) return out;
+            if (!out || !*out || !mem::Read32(g_errGlobal, &coolErr) || *out != coolErr) return out;
 
             const uintptr_t rec = g_lookup(static_cast<char*>(component) + 0x18, mount);
             uint16_t chr = 0;
-            if (!mem::Plausible(rec) || !mem::Read16(rec + g_charKeyOff, &chr) || chr != key)
-                return out;
+            if (!mem::Plausible(rec) || !mem::Read16(rec + g_charKeyOff, &chr)) return out;
 
-            *out = 0;
-            // Three callers, and one of them may ask often, so the first is
-            // logged and then at most one line every five seconds.
-            const long n = InterlockedIncrement(&g_passed);
-            const ULONGLONG now = GetTickCount64();
-            if (n == 1 || now - g_lastLog >= 5000)
+            for (Mount& m : g_mounts)
             {
-                g_lastLog = now;
-                LOG("[cooldown] Blackstar's summon let through a cooldown that was still running (%ld so far this "
-                    "session).", n);
+                if (m.key < 0 || chr != m.key) continue;
+                *out = 0;
+                // Three callers, and one of them may ask often, so the first is
+                // logged and then at most one line every five seconds.
+                const long n = InterlockedIncrement(&m.passed);
+                const ULONGLONG now = GetTickCount64();
+                if (n == 1 || now - m.lastLog >= 5000)
+                {
+                    m.lastLog = now;
+                    LOG("[cooldown] %s's summon let through a cooldown that was still running (%ld so far this "
+                        "session).", m.name, n);
+                }
+                break;
             }
             return out;
         }
     }
 
-    void SetBlackstarKey(uint16_t key) { InterlockedExchange(&g_key, key); }
+    void SetMountKey(MountId which, uint16_t key) { InterlockedExchange(&g_mounts[which].key, key); }
 
     bool Install()
     {
@@ -89,8 +99,8 @@ namespace fp::cooldown
             return false;
         }
         LOG_OK("[cooldown] summon cooldown check hooked at +0x%llX, mount key at record +0x%02X. Once "
-               "characterinfo is read, a cooldown on Blackstar no longer refuses a summon, including one that "
-               "started before this session.", static_cast<unsigned long long>(mem::Rva(entry)), g_charKeyOff);
+               "characterinfo is read, a cooldown on a mount whose setting is 0 no longer refuses a summon, "
+               "including one that started before this session.", static_cast<unsigned long long>(mem::Rva(entry)), g_charKeyOff);
         return true;
     }
 }

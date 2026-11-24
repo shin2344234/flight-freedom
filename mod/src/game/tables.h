@@ -58,12 +58,14 @@ namespace fp::tables
     // data says, which is why the caller chooses.
     int SetBlackstarStays(int64_t value);
 
-    // Blackstar's summon cooldown, characterinfo _callMercenaryCoolTime, 3600
-    // in the game's data. Only Blackstar's row is written. The game stores an
-    // end time when a cooldown starts, so this changes the cooldowns that
-    // start afterwards and not one already running. Same returns as above.
-    // `key` gets Blackstar's characterinfo key whenever his row is found.
-    int SetBlackstarCooldown(int64_t value, uint16_t* key);
+    // One mount's summon cooldown, characterinfo _callMercenaryCoolTime on the
+    // row whose string key is `row`: 3600 on Blackstar's in the game's data,
+    // 9000 on the balloons'. Only that row is written, and `who` names the
+    // mount in the log. The game stores an end time when a cooldown starts,
+    // so this changes the cooldowns that start afterwards and not one already
+    // running. Same returns as above. `key` gets the row's characterinfo key
+    // whenever the row is found.
+    int SetMountCooldown(const char* row, const char* who, int64_t value, uint16_t* key);
 
     // Research output that a release build has no use for: the raw bytes of
     // the two rows the setting compares. On with Probe=1, off otherwise.

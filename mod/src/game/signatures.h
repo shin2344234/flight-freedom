@@ -102,6 +102,10 @@ namespace fp::sig
     inline constexpr const char* kStr_CharacterTable      = "characterinfo";
     inline constexpr const char* kCharBlackstarKey        = "Riding_Dragon_1";
     inline constexpr const char* kCharWyvernKey           = "Riding_Wyvern_1000";
+    // Skystreaker, the third balloon (Cloudcart and Cloudcruiser are _1 and
+    // _2), character 1002043. Its row carries a cooldown of 9000 and a spawn
+    // duration of 9000. Only SkystreakerCooldown reads it; issue 12.
+    inline constexpr const char* kCharSkystreakerKey      = "Riding_Balloon_Summoner_3";
     inline constexpr int64_t     kBlackstarCallCoolTime   = 3600;
     inline constexpr int64_t     kBlackstarSpawnDuration  = 600;
     inline constexpr int64_t     kWyvernCallCoolTime      = 300;

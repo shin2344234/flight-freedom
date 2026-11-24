@@ -81,6 +81,9 @@ namespace
         // Blackstar's summon cooldown in seconds; the game's is 3600. -1
         // leaves whatever the table holds, which may be another mod's value.
         float blackstarCooldown;
+        // Skystreaker's summon cooldown in seconds, the same way; the game's is
+        // 9000. -1, the default, leaves the table alone.
+        float skystreakerCooldown;
         // Research only, Probe=1. 0 leaves the vehicleinfo 30.0 alone.
         float groundCheck;
         bool  oldLanded;      // an ini still setting the retired LandedTimeout
@@ -102,6 +105,7 @@ namespace
         s.hideMapNoFly   = ReadSetting(L"HideMapNoFly", L"0") != 0.0f;
         s.blackstarStays = ReadSetting(L"BlackstarStays", L"1");
         s.blackstarCooldown = ReadSetting(L"BlackstarCooldown", L"0");
+        s.skystreakerCooldown = ReadSetting(L"SkystreakerCooldown", L"-1");
         s.groundCheck    = ReadSetting(L"GroundCheck", L"0");
         s.oldLanded      = ReadSetting(L"LandedTimeout", L"0") != 0.0f;
         s.aboveCeiling   = ReadSetting(L"AboveCeiling", L"0");
@@ -137,11 +141,12 @@ namespace
         const Settings s = ReadSettings();
 
         LOG("[mod] %s %s for Crimson Desert 2.05.01 (exe 1.0.0.3732). Settings: Ceiling=%s NoFlyZones=%d "
-            "AbyssSummon=%d PlatformSummon=%d BlockedSummon=%d RoofSummon=%d TownFlight=%d HideMapNoFly=%d BlackstarStays=%d BlackstarCooldown=%d Probe=%d", FP_NAME,
+            "AbyssSummon=%d PlatformSummon=%d BlockedSummon=%d RoofSummon=%d TownFlight=%d HideMapNoFly=%d BlackstarStays=%d BlackstarCooldown=%d SkystreakerCooldown=%d Probe=%d", FP_NAME,
             FP_VERSION, s.ceiling == 0.0f ? "0 (game's own)" : (s.ceiling < 0.0f ? "-1 (none)" : "custom"),
             s.noFlyZones ? 1 : 0, s.abyssSummon ? 1 : 0, s.platformSummon ? 1 : 0, s.blockedSummon ? 1 : 0, s.roofSummon ? 1 : 0,
             s.townFlight ? 1 : 0, s.hideMapNoFly ? 1 : 0,
-            static_cast<int>(s.blackstarStays), static_cast<int>(s.blackstarCooldown), s.probe ? 1 : 0);
+            static_cast<int>(s.blackstarStays), static_cast<int>(s.blackstarCooldown),
+            static_cast<int>(s.skystreakerCooldown), s.probe ? 1 : 0);
         if (s.oldLanded)
             LOG("[mod] LandedTimeout is set in the ini and is ignored. It never reached a timer: it wrote Blackstar's "
                 "ground-check distance. BlackstarStays replaces it and is on unless set to 0.");
@@ -245,32 +250,63 @@ namespace
         }
 
         int waited = 0, tick = 0, coolTries = 0;
-        bool reported = false, coolDone = s.blackstarCooldown < 0.0f;
-        if (coolDone)
-            LOG("[cooldown] BlackstarCooldown is negative, so Blackstar's summon cooldown is left as the table has it.");
+        bool reported = false;
+        // One entry per mount whose summon cooldown has a setting. A negative
+        // setting leaves that row alone and counts as done from the start.
+        struct Cool
+        {
+            const char*             row;
+            const char*             who;
+            const char*             setting;
+            fp::cooldown::MountId   id;
+            float                   value;
+            bool                    done;
+            bool                    clearRunning;
+        } cools[] = {
+            { fp::sig::kCharBlackstarKey, "Blackstar", "BlackstarCooldown", fp::cooldown::kBlackstar,
+              s.blackstarCooldown, s.blackstarCooldown < 0.0f, false },
+            { fp::sig::kCharSkystreakerKey, "Skystreaker", "SkystreakerCooldown", fp::cooldown::kSkystreaker,
+              s.skystreakerCooldown, s.skystreakerCooldown < 0.0f, false },
+        };
+        for (const Cool& c : cools)
+            if (c.done)
+                LOG("[cooldown] %s is negative, so %s's summon cooldown is left as the table has it.", c.setting,
+                    c.who);
         // A cooldown already running keeps its end time whatever the table
         // says, so 0 also lets one of those through. Any other number is a
         // length the player chose, and a running cooldown is left to finish.
-        const bool clearRunning = s.blackstarCooldown == 0.0f && fp::cooldown::Install();
+        // The hook is one for every mount and goes in once.
+        bool wantHook = false;
+        for (const Cool& c : cools) wantHook = wantHook || c.value == 0.0f;
+        const bool hooked = wantHook && fp::cooldown::Install();
+        for (Cool& c : cools) c.clearRunning = hooked && c.value == 0.0f;
         while (!g_stop.load())
         {
             // characterinfo is its own table and may land a poll or two after
             // the other two, so it is asked on each pass until it answers,
             // for two minutes at most.
-            if (reported && !coolDone)
+            if (reported)
             {
-                uint16_t key = 0xFFFF;
-                const int r = fp::tables::SetBlackstarCooldown(static_cast<int64_t>(s.blackstarCooldown), &key);
-                if (r != fp::tables::kNotReady)
+                for (Cool& c : cools)
                 {
-                    coolDone = true;
-                    if (clearRunning && key != 0xFFFF) fp::cooldown::SetBlackstarKey(key);
+                    if (c.done) continue;
+                    uint16_t key = 0xFFFF;
+                    const int r = fp::tables::SetMountCooldown(c.row, c.who, static_cast<int64_t>(c.value), &key);
+                    if (r == fp::tables::kNotReady) continue;
+                    c.done = true;
+                    if (c.clearRunning && key != 0xFFFF) fp::cooldown::SetMountKey(c.id, key);
                 }
-                else if (++coolTries == 60)   // a pass is 2 seconds
+                bool left = false;
+                for (const Cool& c : cools) left = left || !c.done;
+                if (left && ++coolTries == 60)   // a pass is 2 seconds
                 {
-                    LOG_ERR("[cooldown] characterinfo was still not loaded after two minutes, so Blackstar keeps "
-                            "the game's summon cooldown this session.");
-                    coolDone = true;
+                    for (Cool& c : cools)
+                        if (!c.done)
+                        {
+                            LOG_ERR("[cooldown] characterinfo was still not loaded after two minutes, so %s keeps "
+                                    "the game's summon cooldown this session.", c.who);
+                            c.done = true;
+                        }
                 }
             }
             if (!reported)

@@ -56,6 +56,10 @@ file touched and nothing written to a save.
   plugin also hooks the one check that refuses a summon for a cooldown and
   lets Blackstar through it. Every other mount, and every other reason for a
   refusal, gets the game's answer.
+- **Skystreaker's summon cooldown.** The third balloon carries 9000 seconds in
+  the same field. `SkystreakerCooldown`, off by default, writes its row the
+  same way and lets it through the same check. Cloudcart and Cloudcruiser keep
+  theirs.
 
 Every patch checks the bytes it is about to change and the code around them,
 and refuses on any other game build, with a line in the log rather than a
@@ -103,6 +107,7 @@ below is also the plugin's own.
 | `HideMapNoFly` | `0` | `1` stops the world map painting towns red while you ride Blackstar or a war machine. It changes only what the map draws. The map uses one overlay for Blackstar and the war machines, so they lose the red together. |
 | `BlackstarStays` | `1` | Blackstar stays where you get off it instead of flying away about 30 seconds later. `0` keeps the game's behaviour. In 1.1.5 this changed his spawn duration, which did nothing, and an old number left here is read as `1`. `LandedTimeout` is retired and ignored. |
 | `BlackstarCooldown` | `0` | Blackstar's summon cooldown in seconds. `0` removes it, a cooldown already running included. `-1` leaves the table alone, so the game's 3600 or another mod's value stands. Any other number is that many seconds; only `0` has been played. |
+| `SkystreakerCooldown` | `-1` | Skystreaker's summon cooldown in seconds, 9000 in the game's table. `-1` leaves the table alone. `0` removes it, a cooldown already running included. Any other number is that many seconds. Only Skystreaker's row is written, so the other two balloons keep theirs. Requested by Andjelo. |
 | `Probe` | `0` | Research mode. Hooks every mount-related check and reads the `[sites]`, `[patch]` and `[watch]` sections. The log becomes large. |
 
 `AboveCeiling` and `SummonAnywhere` are research overrides that apply only with

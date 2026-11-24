@@ -48,6 +48,7 @@ All in `FlightFreedom.ini`, section `[settings]`.
 | `HideMapNoFly` | `0` | `1` stops the world map painting towns red while you ride Blackstar or a war machine. It changes only what the map draws. The map uses one overlay for Blackstar and the war machines, so they lose the red together. |
 | `BlackstarStays` | `1` | Blackstar stays where you get off it instead of flying away about 30 seconds later. `0` keeps the game's behaviour. |
 | `BlackstarCooldown` | `0` | Blackstar's summon cooldown in seconds, an hour in the game's table. `0` removes it, a cooldown already running included. `-1` leaves the table alone. Any other number is that many seconds; only `0` has been played. |
+| `SkystreakerCooldown` | `-1` | Skystreaker's summon cooldown in seconds, 9000 in the game's table. `-1` leaves the table alone. `0` removes it, a cooldown already running included. Any other number is that many seconds. Cloudcart and Cloudcruiser keep theirs. |
 | `Probe` | `0` | Research mode. Hooks every mount condition, reads `[sites]`, `[patch]` and `[watch]`, and makes the log large. |
 
 `AboveCeiling` and `SummonAnywhere` are research overrides and only apply
@@ -91,6 +92,8 @@ plugin also hooks that check, and when it refuses Blackstar for a cooldown the
 summon goes through. Any other mount, and any other refusal, gets the game's
 own answer. The check is found by its own bytes, and the record it looks up
 carries the mount's `characterinfo` row, which is how Blackstar is told apart.
+`SkystreakerCooldown` does the same for `Riding_Balloon_Summoner_3`, the
+third balloon, whose row holds 9000 in that field.
 
 Everything else is one routine. Each region in `regioninfo` carries a list
 of mount categories it blocks, and a routine asks whether the region you are
