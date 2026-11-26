@@ -18,7 +18,8 @@ namespace fp::tables
         uintptr_t global = 0;   // address of the pointer the resolver loads
         uintptr_t object = 0;   // the table itself
         uint32_t  rows   = 0;
-        unsigned  defsOff = 0;  // the row array's offset in the table object once string keys read, else 0
+        unsigned  defsOff = 0;  // the row array's offset in the table object once the rows check out, else 0
+        bool      v2     = false; // the 3840 layout: no string in the def, 0x30-byte rows, the global found at the callers
     };
 
     // Resolve by name ("vehicleinfo"). False while the table is not loaded yet,
@@ -59,7 +60,7 @@ namespace fp::tables
     int SetBlackstarStays(int64_t value);
 
     // One mount's summon cooldown, characterinfo _callMercenaryCoolTime on the
-    // row whose string key is `row`: 3600 on Blackstar's in the game's data,
+    // row named `row`: 3600 on Blackstar's in the game's data,
     // 9000 on the balloons'. Only that row is written, and `who` names the
     // mount in the log. The game stores an end time when a cooldown starts,
     // so this changes the cooldowns that start afterwards and not one already

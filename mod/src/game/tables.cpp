@@ -18,6 +18,11 @@ namespace
 {
     struct TableHunt { const char* name; uintptr_t fn; };
 
+    // Every call to `getter` that loads its table global in the instruction
+    // in front. On 3840 the getter takes the table object in rcx, so the
+    // global is only ever seen at its callers.
+    struct CallerHunt { uintptr_t getter; uintptr_t global; unsigned agree; unsigned disagree; };
+
     // One copied record, and how much of it was readable.
     struct Rec
     {
@@ -28,30 +33,85 @@ namespace
 
     // The getter that names this table: its call goes to the table's loader,
     // and the first `lea r8,[rip+string]` in the loader is the table's name.
-    bool TableVisit(uintptr_t getter, void* ctx)
+    // True when the first `lea r8,[rip+string]` in `loader` names `name`.
+    bool LoaderNames(uintptr_t loader, const char* name)
     {
-        auto* h = static_cast<TableHunt*>(ctx);
-        const uintptr_t loader = fp::mem::RipAt(getter + kOff_TableGetter_Call, 5);
         if (!fp::mem::InImage(loader)) return false;
         for (uintptr_t p = loader; p < loader + kMax_LoaderToNameLea; ++p)
         {
             if (!fp::mem::MatchAt(p, kSig_LeaR8Rip)) continue;
             char buf[32];
             const uintptr_t str = fp::mem::RipAt(p, 7);
-            if (!fp::mem::ReadCString(str, buf, sizeof buf) || strcmp(buf, h->name) != 0) return false;
-            h->fn = getter;
-            return true;
+            return fp::mem::ReadCString(str, buf, sizeof buf) && strcmp(buf, name) == 0;
         }
         return false;
     }
 
-    uintptr_t GlobalFor(const char* name)
+    bool TableVisit(uintptr_t getter, void* ctx)
+    {
+        auto* h = static_cast<TableHunt*>(ctx);
+        if (!LoaderNames(fp::mem::RipAt(getter + kOff_TableGetter_Call, 5), h->name)) return false;
+        h->fn = getter;
+        return true;
+    }
+
+    // The 3840 getter. 139 match the opening, and the call to the loader is
+    // at the same place in 114 of them, which is checked before it is followed.
+    bool TableVisit2(uintptr_t getter, void* ctx)
+    {
+        auto* h = static_cast<TableHunt*>(ctx);
+        if (!fp::mem::MatchAt(getter + kOff_TableGetter2_Sig, kSig_TableGetter2_Call)) return false;
+        if (!LoaderNames(fp::mem::RipAt(getter + kOff_TableGetter2_E8, 5), h->name)) return false;
+        h->fn = getter;
+        return true;
+    }
+
+    bool CallerVisit(uintptr_t hit, void* ctx)
+    {
+        auto* h = static_cast<CallerHunt*>(ctx);
+        if (fp::mem::RipAt(hit + 7, 5) != h->getter) return false;
+        const uintptr_t g = fp::mem::RipAt(hit, 7);
+        if (!fp::mem::InImage(g)) return false;
+        if (!h->global) { h->global = g; h->agree = 1; }
+        else if (g == h->global) ++h->agree;
+        else ++h->disagree;
+        return false;
+    }
+
+    // The global holding the table object, and which generation of getter
+    // found it. 0 when neither did.
+    uintptr_t GlobalFor(const char* name, bool* v2)
     {
         TableHunt h{ name, 0 };
         fp::mem::FindIf(kSig_TableGetter, TableVisit, &h);
+        if (h.fn)
+        {
+            const uintptr_t g = fp::mem::RipAt(h.fn + kOff_TableGetter_MovGlobal, 7);
+            if (fp::mem::InImage(g)) { *v2 = false; return g; }
+            return 0;
+        }
+
+        fp::mem::FindIf(kSig_TableGetter2, TableVisit2, &h);
         if (!h.fn) return 0;
-        const uintptr_t g = fp::mem::RipAt(h.fn + kOff_TableGetter_MovGlobal, 7);
-        return fp::mem::InImage(g) ? g : 0;
+        CallerHunt ch{ h.fn, 0, 0, 0 };
+        fp::mem::FindIf(kSig_TableCaller2, CallerVisit, &ch);
+        if (!ch.global || ch.disagree)
+        {
+            LOG_ERR("[table] %s's getter is at +0x%llX, and its callers load %u globals that agree and %u that do not, so "
+                    "the table is not resolved.", name, static_cast<unsigned long long>(fp::mem::Rva(h.fn)),
+                    ch.agree, ch.disagree);
+            return 0;
+        }
+        *v2 = true;
+        return ch.global;
+    }
+
+    struct Layout { unsigned count, rows, stride, def; };
+    const Layout& LayoutOf(const fp::tables::Table& t)
+    {
+        static const Layout v1{ kOff_Table_Count, kOff_Table_Rows, kStride_TableRow, kOff_Row_Def };
+        static const Layout v2{ kOff_Table2_Count, kOff_Table2_Rows, kStride_Table2Row, kOff_Row2_Def };
+        return t.v2 ? v2 : v1;
     }
 
     // A row's def, or 0 when the game has not built that row yet.
@@ -59,26 +119,83 @@ namespace
     {
         uintptr_t rows = 0, def = 0;
         if (!t.object || row >= t.rows) return 0;
-        if (!fp::mem::ReadPtr(t.object + kOff_Table_Rows, &rows) || !rows) return 0;
-        if (!fp::mem::ReadPtr(rows + uintptr_t(kStride_TableRow) * row + kOff_Row_Def, &def)) return 0;
+        const Layout& l = LayoutOf(t);
+        if (!fp::mem::ReadPtr(t.object + l.rows, &rows) || !rows) return 0;
+        if (!fp::mem::ReadPtr(rows + uintptr_t(l.stride) * row + l.def, &def)) return 0;
         return def;
     }
 
     // The table counts as resolved once at least two of its first rows carry
     // a readable string key, which is what says the layout is the one above.
+    // On 3840 a def holds no string. What says the layout is right is
+    // `_staticInfoIndex`, the u32 at +4, being the row's own index on two
+    // rows, which a wrong row array or a wrong stride would not give.
     bool CheckRows(fp::tables::Table& t)
     {
-        t.defsOff = kOff_Table_Rows;
+        t.defsOff = LayoutOf(t).rows;
         int good = 0;
         for (uint32_t r = 0; r < t.rows && good < 2; ++r)
         {
             const uintptr_t def = DefAt(t, r);
+            if (!def) continue;
+            if (t.v2)
+            {
+                uint32_t idx = 0;
+                if (fp::mem::Read32(def + kOff_Def2_Index, &idx) && idx == r) ++good;
+                continue;
+            }
             char key[64];
-            if (def && fp::mem::ReadEngineString(def + kOff_Def_StringKey, key, sizeof key) && strlen(key) >= 2)
+            if (fp::mem::ReadEngineString(def + kOff_Def_StringKey, key, sizeof key) && strlen(key) >= 2)
                 ++good;
         }
         if (good >= 2) return true;
         t.defsOff = 0;
+        return false;
+    }
+
+    // The name the mod asks for, as the number that stands in for it on 3840,
+    // and how wide that number is in the def.
+    struct NumKey { const char* name; uint32_t key; unsigned width; };
+    bool NumKeyFor(const char* name, NumKey* out)
+    {
+        static const NumKey keys[] = {
+            { kCharBlackstarKey,       kCharBlackstarKeyNum,   4 },
+            { kCharWyvernKey,          kCharWyvernKeyNum,      4 },
+            { kCharSkystreakerKey,     kCharSkystreakerKeyNum, 4 },
+            { kVehicleGroundCheckRow,  kVehicleDragonKeyNum,   2 },
+        };
+        for (const NumKey& k : keys)
+            if (!strcmp(k.name, name)) { *out = k; return true; }
+        return false;
+    }
+
+    // Is this row the one `name` says? By string key up to 3732, by `_key`
+    // from 3840 on, where the string is not in the def any more.
+    bool RowIs(const fp::tables::Table& t, uint32_t row, const char* name)
+    {
+        const uintptr_t def = DefAt(t, row);
+        if (!def) return false;
+        if (!t.v2)
+        {
+            char key[96];
+            return fp::mem::ReadEngineString(def + kOff_Def_StringKey, key, sizeof key) && !strcmp(key, name);
+        }
+        NumKey nk{};
+        if (!NumKeyFor(name, &nk)) return false;
+        if (nk.width == 2)
+        {
+            uint16_t k = 0;
+            return fp::mem::Read16(def + kOff_Def2_Key, &k) && k == nk.key;
+        }
+        uint32_t k = 0;
+        return fp::mem::Read32(def + kOff_Def2_Key, &k) && k == nk.key;
+    }
+
+    // The row whose key is `name`, or false.
+    bool FindRow(const fp::tables::Table& t, const char* name, uint32_t* row)
+    {
+        for (uint32_t r = 0; r < t.rows; ++r)
+            if (RowIs(t, r, name)) { *row = r; return true; }
         return false;
     }
 
@@ -252,7 +369,11 @@ namespace
     int ReadBeforeMessage(uintptr_t lea, const char** why, uintptr_t* readAt)
     {
         const uintptr_t read = lea - kLen_FieldReadCall;
-        if (!fp::mem::MatchAt(read, kSig_FieldReadCall)) { *why = "no field read in front of it"; return -1; }
+        if (!fp::mem::MatchAt(read, kSig_FieldReadCall) && !fp::mem::MatchAt(read, kSig_FieldReadCallB))
+        {
+            *why = "no field read in front of it";
+            return -1;
+        }
 
         uint32_t d = 0;
         int32_t rel = 0;
@@ -404,12 +525,15 @@ namespace fp::tables
 
     bool Resolve(const char* name, Table& out)
     {
-        const uintptr_t global = out.global ? out.global : GlobalFor(name);
+        bool v2 = out.v2;
+        uintptr_t global = out.global;
+        if (!global) global = GlobalFor(name, &v2);
         out = Table{};
         out.global = global;
+        out.v2 = v2;
         if (!out.global) return false;
         if (!mem::ReadPtr(out.global, &out.object) || !out.object) return false;
-        if (!mem::Read32(out.object + kOff_Table_Count, &out.rows) || !out.rows || out.rows > 0x40000)
+        if (!mem::Read32(out.object + LayoutOf(out).count, &out.rows) || !out.rows || out.rows > 0x40000)
             return false;
         return CheckRows(out);
     }
@@ -418,7 +542,15 @@ namespace fp::tables
     {
         const uintptr_t def = DefAt(t, row);
         if (out && n) out[0] = 0;
-        return def && mem::ReadEngineString(def + kOff_Def_StringKey, out, n) && out[0];
+        if (!def || !out || !n) return false;
+        if (!t.v2) return mem::ReadEngineString(def + kOff_Def_StringKey, out, n) && out[0];
+        // No string in the def on 3840. The row index is what the logs
+        // already print, so the key goes next to it. A u32 is read, and for
+        // vehicleinfo and regioninfo the top half is not the key.
+        uint32_t k = 0;
+        if (!mem::Read32(def + kOff_Def2_Key, &k)) return false;
+        snprintf(out, n, "key %u", static_cast<unsigned>(k));
+        return true;
     }
 
     bool Probe()
@@ -621,7 +753,7 @@ namespace fp::tables
             char key[96];
             if (!def || !mem::Read32(def + g_groundOff, &cur) || cur != stock) continue;
             if (!StringKey(g_veh, r, key, sizeof key)) strcpy_s(key, "(no key)");
-            if (strcmp(key, kVehicleGroundCheckRow) != 0)
+            if (!RowIs(g_veh, r, kVehicleGroundCheckRow))
             {
                 LOG_ERR("[groundcheck] %.1f sits on %s, not %s, so nothing is written.",
                         kVehicleGroundCheck, key, kVehicleGroundCheckRow);
@@ -754,13 +886,9 @@ namespace fp::tables
         // Both rows by name. Blackstar is the one written; the Wyvern is only
         // read, as the half of the fingerprint that says what "no limit" is.
         uintptr_t star = 0, wyv = 0;
-        char key[96];
-        for (uint32_t r = 0; r < chr.rows && !(star && wyv); ++r)
-        {
-            if (!StringKey(chr, r, key, sizeof key)) continue;
-            if (!strcmp(key, kCharBlackstarKey)) star = DefAt(chr, r);
-            else if (!strcmp(key, kCharWyvernKey)) wyv = DefAt(chr, r);
-        }
+        uint32_t rowStar = 0, rowWyv = 0;
+        if (FindRow(chr, kCharBlackstarKey, &rowStar)) star = DefAt(chr, rowStar);
+        if (FindRow(chr, kCharWyvernKey, &rowWyv)) wyv = DefAt(chr, rowWyv);
         if (!star || !wyv)
         {
             LOG_ERR("[blackstar] characterinfo has %u rows and %s%s%s not among them, so nothing is written.",
@@ -871,13 +999,12 @@ namespace fp::tables
         if (!Resolve(kStr_CharacterTable, chr)) return kNotReady;
 
         uintptr_t star = 0;
-        char name[96];
-        for (uint32_t r = 0; r < chr.rows && !star; ++r)
-            if (StringKey(chr, r, name, sizeof name) && !strcmp(name, row))
-            {
-                star = DefAt(chr, r);
-                *key = static_cast<uint16_t>(r);
-            }
+        uint32_t found = 0;
+        if (FindRow(chr, row, &found))
+        {
+            star = DefAt(chr, found);
+            *key = static_cast<uint16_t>(found);
+        }
         if (!star)
         {
             LOG_ERR("[cooldown] characterinfo has %u rows and %s is not among them, so nothing is written.",

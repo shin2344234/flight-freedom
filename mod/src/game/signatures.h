@@ -1,8 +1,8 @@
 #pragma once
 #include <cstdint>
 
-// Byte patterns, offsets and RTTI names for Crimson Desert 2.05.01
-// (exe 1.0.0.3732). Everything here is lifted from Master Looter's
+// Byte patterns, offsets and RTTI names for Crimson Desert 2.06.00
+// (exe 1.0.0.3840). Everything here is lifted from Master Looter's
 // signatures.h except the condition names, which came out of the flight
 // research in private/FEASIBILITY.md.
 namespace fp::sig
@@ -16,6 +16,48 @@ namespace fp::sig
     // table is found by matching the getter, following its call, and reading
     // the first `lea r8` in the loader. 118 getters match on 3663; one names
     // each of vehicleinfo, characterinfo and regioninfo.
+    //
+    // Exe 1.0.0.3840 (2.06.00) changed all of it. The per-table getter with
+    // its own global is gone. A getter is now a method on the table object
+    // (rcx), 139 of them with one body, and it is the callers that load the
+    // global: `mov rcx,[rip+global]; mov edx,index; call <getter>`. The
+    // method checks edx against a row count at +0x20, takes the row at
+    // [rcx+0x18] + index * 0x30, returns the def at row +0x20, and calls the
+    // table's loader first when that is empty. The loader is the same
+    // function as before for naming purposes: its first `lea r8,[rip+name]`
+    // is the table name. A def no longer starts with the engine string key.
+    // It starts with `_key` and has `_staticInfoIndex` at +4, a u32 equal to
+    // the row's index, so the names "Riding_Dragon_1" and the like are not in
+    // memory at the def and a row is found by its `_key` instead (below).
+    // Both generations are tried, the 3663 getter first.
+    inline constexpr const char* kSig_TableGetter2 =
+        "48 89 5C 24 08 48 89 6C 24 18 48 89 74 24 20 57 48 83 EC 30 8B EA 48 8B F1 3B 51 20 0F 83";
+    // Inside that getter, 0xBF bytes in: `movzx r8d,bp; lea rdx,[rsp+0x48];
+    // mov rcx,rsi; call <loader>`. 114 of the 139 have it there, including
+    // vehicleinfo, regioninfo and characterinfo.
+    inline constexpr const char* kSig_TableGetter2_Call = "44 0F B7 C5 48 8D 54 24 48 48 8B CE E8 ?? ?? ?? ??";
+    inline constexpr unsigned kOff_TableGetter2_Sig  = 0xBF;
+    inline constexpr unsigned kOff_TableGetter2_E8   = 0xCB;   // the call to the loader, 5 bytes
+    // A caller: `mov rcx,[rip+global]; call <getter>`, 12 bytes. The 108
+    // callers of vehicleinfo's getter on 3840 all load the one global.
+    inline constexpr const char* kSig_TableCaller2 = "48 8B 0D ?? ?? ?? ?? E8 ?? ?? ?? ??";
+    inline constexpr unsigned kOff_Table2_Count   = 0x20;
+    inline constexpr unsigned kOff_Table2_Rows    = 0x18;
+    inline constexpr unsigned kStride_Table2Row   = 0x30;
+    inline constexpr unsigned kOff_Row2_Def       = 0x20;
+    inline constexpr unsigned kOff_Def2_Key       = 0x00;   // vehicleinfo's is a u16, characterinfo's a u32
+    inline constexpr unsigned kOff_Def2_Index     = 0x04;   // _staticInfoIndex, the row's own index
+    // characterinfo's `_key` for the three mounts the mod names, from
+    // characterinfo.staticinfoheader on 3840 (the same numbers as before,
+    // Skystreaker's is in the comment further down). The row index is not
+    // stored by name any more, so these are looked for in each def's first
+    // four bytes.
+    inline constexpr uint32_t kCharBlackstarKeyNum    = 1000799;   // Riding_Dragon_1
+    inline constexpr uint32_t kCharWyvernKeyNum       = 1004233;   // Riding_Wyvern_1000
+    inline constexpr uint32_t kCharSkystreakerKeyNum  = 1002043;   // Riding_Balloon_Summoner_3
+    // vehicleinfo row "Dragon", a u16 `_key` at def+0, for the research
+    // setting that writes the 30.0 field.
+    inline constexpr uint32_t kVehicleDragonKeyNum    = 16984;
     //
     //   sub rsp,28h; movzx r8d,word [rcx]; mov rcx,[rip+global]
     //   cmp r8d,[rcx+28h]; jb ok; mov rax,[rip+empty]; add rsp,28h; ret
@@ -148,6 +190,10 @@ namespace fp::sig
     inline constexpr const char* kSig_LeaRip      = "48 8D ?? ?? ?? ?? ??";
     inline constexpr const char* kSig_FieldReadCall =
         "48 8D 96 ?? ?? ?? ?? 48 8B CF E8 ?? ?? ?? ?? 84 C0 75 ?? 33 D2 48 8D 4D ?? E8 ?? ?? ?? ??";
+    // 3840 is the same instructions with the registers swapped, `lea rdx,[rdi+disp]`
+    // and `mov rcx,rbx`, same length and same offsets.
+    inline constexpr const char* kSig_FieldReadCallB =
+        "48 8D 97 ?? ?? ?? ?? 48 8B CB E8 ?? ?? ?? ?? 84 C0 75 ?? 33 D2 48 8D 4D ?? E8 ?? ?? ?? ??";
     inline constexpr unsigned    kOff_FieldReadCall_Disp  = 0x03; // the record offset, a dword
     inline constexpr unsigned    kOff_FieldReadCall_E8    = 0x0A; // the call to the reader thunk
     inline constexpr unsigned    kLen_FieldReadCall       = 0x1E; // the message load follows at once
@@ -292,6 +338,19 @@ namespace fp::sig
     // there. Its TownFlight address still reads `48 83 EC` on 3732, inside
     // another function, and only the ctx check keeps it from writing.
     //
+    // Exe 1.0.0.3840 (Steam build 26949954, 2.06.00) on 26 November 2026
+    // moved all of them once more and recompiled two. NoFlyZones +0x19A5BA0
+    // (forward 0x8EDA0), validator2 +0xB62FD0 (forward 0x48640) so
+    // AbyssSummon +0xB6314B and BlockedSummon +0xB6327A, TownFlight
+    // +0x2590C90 (forward 0xD62D0). Same bytes and the same ctx for those
+    // four. RoofSummon's je is at +0xB6353A and its displacement grew from
+    // +0x20C to +0x20F, so its original and replacement bytes changed;
+    // it still lands on `mov [rsi],r14d`, the allowed exit, at +0xB6374F.
+    // NoFlyZones was recompiled (rsi and rdi traded for r15 and r12, a
+    // table lookup call where there were two inlined reads, three field
+    // offsets down by 8 or 2) and keeps its logic and its two callers, so
+    // its ctx is new again. 1.1.21 refuses every patch there.
+    //
     // That update showed what three original bytes are worth. On 3446,
     // +0x18A9440 is the start of an unrelated function that also opens with
     // `48 89 5C`, so 1.1.10 wrote `xor eax,eax; ret` over it. Each patch now
@@ -299,14 +358,15 @@ namespace fp::sig
     // match before anything is written, starting `ctxBack` bytes before it.
     // Every ctx matches once in the image on 3424, 3446, 3460, 3462, 3479, 3527, 3549 and 3576, at the site,
     // and nowhere at the old addresses. On 3663 and 3732 the same holds with
-    // the new NoFlyZones ctx; the old one matches nowhere there.
+    // the 3663 NoFlyZones ctx; on 3840 the same holds with a third one, and
+    // the older two match nowhere there.
     struct BytePatch
     {
         const char* name; uintptr_t rva; const uint8_t* orig; const uint8_t* repl; unsigned len;
         const char* ctx; unsigned ctxBack;
     };
 
-    // +0x1916E00 answers whether any region the actor stands in, or a parent
+    // +0x19A5BA0 answers whether any region the actor stands in, or a parent
     // of it, lists the mount's category in its block list. It has exactly two
     // callers: the summon validator (ClientMercenaryClanActorComponent slot
     // 41) and ConditionData_IsVehicleAllowedInEnteredRegion, which is what
@@ -315,12 +375,12 @@ namespace fp::sig
     inline constexpr uint8_t kNoFlyZones_Orig[] = { 0x48, 0x89, 0x5C };  // mov [rsp+8], rbx
     inline constexpr uint8_t kNoFlyZones_Repl[] = { 0x31, 0xC0, 0xC3 };  // xor eax,eax; ret
     inline constexpr const char* kNoFlyZones_Ctx =
-        "48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 20 55 41 54 41 56 "
-        "48 8D 6C 24 B9 48 81 EC C0 00 00 00 48 8B F2";
-    inline constexpr BytePatch kPatch_NoFlyZones = { "NoFlyZones", 0x1916E00, kNoFlyZones_Orig, kNoFlyZones_Repl, 3,
+        "48 89 5C 24 08 48 89 74 24 10 48 89 7C 24 18 4C 89 64 24 20 55 41 56 41 57 "
+        "48 8D 6C 24 B9 48 81 EC C0 00 00 00 4C 8B FA";
+    inline constexpr BytePatch kPatch_NoFlyZones = { "NoFlyZones", 0x19A5BA0, kNoFlyZones_Orig, kNoFlyZones_Repl, 3,
                                                      kNoFlyZones_Ctx, 0 };
 
-    // +0xB1AAE1 is the `je` in the validator that skips writing
+    // +0xB6314B is the `je` in the validator that skips writing
     // eErrNoCallVehicleMercenaryRegion ("Cannot summon in this area.") when
     // the routine above says the region does not block. Made unconditional,
     // so the summon side is covered even with NoFlyZones off.
@@ -328,7 +388,7 @@ namespace fp::sig
     inline constexpr uint8_t kAbyssSummon_Repl[] = { 0xEB, 0x7D };       // jmp +0x7D
     // call <the routine above>; test al,al; je; mov eax,[rip+error]; mov [rsi],eax
     inline constexpr const char* kAbyssSummon_Ctx = "E8 ?? ?? ?? ?? 84 C0 74 7D 8B 05 ?? ?? ?? ?? 89 06 48 8D 44 24 70";
-    inline constexpr BytePatch kPatch_AbyssSummon = { "AbyssSummon", 0xB1AAE1, kAbyssSummon_Orig, kAbyssSummon_Repl, 2,
+    inline constexpr BytePatch kPatch_AbyssSummon = { "AbyssSummon", 0xB6314B, kAbyssSummon_Orig, kAbyssSummon_Repl, 2,
                                                       kAbyssSummon_Ctx, 7 };
 
     // PlatformSummon patched a `je` in the validator body (+0x9DD6A6 on
@@ -355,7 +415,7 @@ namespace fp::sig
     inline constexpr uint8_t kBlockedSummon_Repl[] = { 0xEB, 0x35 };     // jmp +0x35
     // call <the helper>; mov eax,[rbp+0x278]; test eax,eax; je; mov [rsi],eax
     inline constexpr const char* kBlockedSummon_Ctx = "E8 ?? ?? ?? ?? 8B 85 78 02 00 00 85 C0 74 35 89 06 48 8D 05";
-    inline constexpr BytePatch kPatch_BlockedSummon = { "BlockedSummon", 0xB1AC10, kBlockedSummon_Orig, kBlockedSummon_Repl, 2,
+    inline constexpr BytePatch kPatch_BlockedSummon = { "BlockedSummon", 0xB6327A, kBlockedSummon_Orig, kBlockedSummon_Repl, 2,
                                                         kBlockedSummon_Ctx, 13 };
 
     // Later in validator2, for a mount whose info carries flag 4 (the test
@@ -370,25 +430,25 @@ namespace fp::sig
     // writes the first error if every one of them refuses too. For the
     // Wyvern the screen says "Cannot summon in this location." whatever the
     // error was, which fits Tapap19 near the Wyvern castle (issue 1).
-    // +0xB1AE8D is the `je` taken when the first call found nothing.
+    // +0xB6353A is the `je` taken when the first call found nothing.
     // Jumping always leaves through the validator's own allowed exit, where
     // r14d is still the function's zero register, so the eight retries and
     // the refusal are skipped and nothing else changes. Found 6 November
     // 2026 on 3576; nobody has played it yet.
-    inline constexpr uint8_t kRoofSummon_Orig[] = { 0x0F, 0x84, 0x0C, 0x02, 0x00, 0x00 };  // je +0x20C
-    inline constexpr uint8_t kRoofSummon_Repl[] = { 0x90, 0xE9, 0x0C, 0x02, 0x00, 0x00 };  // nop; jmp +0x20C
+    inline constexpr uint8_t kRoofSummon_Orig[] = { 0x0F, 0x84, 0x0F, 0x02, 0x00, 0x00 };  // je +0x20F
+    inline constexpr uint8_t kRoofSummon_Repl[] = { 0x90, 0xE9, 0x0F, 0x02, 0x00, 0x00 };  // nop; jmp +0x20F
     // lea r9,[rsp+0x20]; movzx r8d,r13b; mov rdx,r12; lea rcx,[rbp+0x278];
     // call <the check>; mov edi,[rax]; test edi,edi; je; call
     inline constexpr const char* kRoofSummon_Ctx =
         "4C 8D 4C 24 20 45 0F B6 C5 49 8B D4 48 8D 8D 78 02 00 00 E8 ?? ?? ?? ?? 8B 38 85 FF 0F 84 ?? ?? ?? ?? E8";
-    inline constexpr BytePatch kPatch_RoofSummon = { "RoofSummon", 0xB1AE8D, kRoofSummon_Orig, kRoofSummon_Repl, 6,
+    inline constexpr BytePatch kPatch_RoofSummon = { "RoofSummon", 0xB6353A, kRoofSummon_Orig, kRoofSummon_Repl, 6,
                                                      kRoofSummon_Ctx, 28 };
 
-    // The check that je tests, +0xB1B540 on 3732, hooked only to log what it
+    // The check that je tests, +0xB63BF0 on 3840, hooked only to log what it
     // answers (roof.cpp); the answer is never changed. The call in front of
     // the site finds it, and stops before the je so it matches whether or
     // not RoofSummon is written. The validator's other call to it, at
-    // +0xB1B02D, is the eight retries and has a different setup.
+    // +0xB636DD, is the eight retries and has a different setup.
     inline constexpr const char* kSig_RoofCheckCall =
         "4C 8D 4C 24 20 45 0F B6 C5 49 8B D4 48 8D 8D 78 02 00 00 E8 ?? ?? ?? ?? 8B 38 85 FF";
     inline constexpr unsigned kOff_RoofCheckCall = 19;   // the E8 inside kSig_RoofCheckCall
@@ -396,14 +456,14 @@ namespace fp::sig
     // mov rax,rsp and the three register saves: 15 bytes for the hook to take.
     inline constexpr const char* kSig_RoofCheckEntry = "48 8B C4 48 89 58 08 48 89 70 10 48 89 78 18";
     // mov eax,[rip+the error's global]; mov [rsi],eax; jmp to the exit. The
-    // first in the function is eErrNoCallVehicleMercenaryIndoor (+0x71D6C68
-    // on 3732, after the upward cast) and the second
-    // eErrNoCallVehicleMercenaryOnRoof (+0x71D6C6C, after the roof query),
+    // first in the function is eErrNoCallVehicleMercenaryIndoor (+0x737BEA0
+    // on 3840, after the upward cast) and the second
+    // eErrNoCallVehicleMercenaryOnRoof (+0x737BEA4, after the roof query),
     // named from the error registration's own leas.
     inline constexpr const char* kSig_RoofCheckErr = "8B 05 ?? ?? ?? ?? 89 06 EB";
-    inline constexpr unsigned kRoofCheckScan = 0x300;    // the function is 0x278 bytes on 3663 and 3732
+    inline constexpr unsigned kRoofCheckScan = 0x300;    // the function is 0x278 bytes on 3663 and 3732, and on 3840 its error stores are 0x1DE and 0x23B in
 
-    // +0x24B39C0 is ConditionData_IsAboveRoad's condition slot. It reads the
+    // +0x2590C90 is ConditionData_IsAboveRoad's condition slot. It reads the
     // road type and radius baked into the condition object, asks the actor's
     // navigation component, and inverts the answer. Exactly one conditioninfo
     // row uses it, out of 10,798 on 2.03.00 and 10,785 on 2.02.00: row
@@ -416,7 +476,7 @@ namespace fp::sig
     inline constexpr uint8_t kTownFlight_Repl[] = { 0x31, 0xC0, 0xC3 };  // xor eax,eax; ret
     inline constexpr const char* kTownFlight_Ctx =
         "48 83 EC 28 48 8B 82 28 08 00 00 4C 8B C1 48 8B 48 68 C4 C1 7A 10 50 1C 41 0F B6 50 18";
-    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x24B39C0, kTownFlight_Orig, kTownFlight_Repl, 3,
+    inline constexpr BytePatch kPatch_TownFlight = { "TownFlight", 0x2590C90, kTownFlight_Orig, kTownFlight_Repl, 3,
                                                      kTownFlight_Ctx, 0 };
 
     // The red over towns on the world map is the map's own picture of the
@@ -425,25 +485,26 @@ namespace fp::sig
     // #WorldmapRestrictedAreaTown, script
     // UIGamePlayControlCommon_MapRestrictedArea, restricted-area-type="Town",
     // check-vehicle-typename-list="WarMachine CarmabirdSaurusWarMachine
-    // Dragon". The control's init (vtable slot 1, +0xFBFBD0 on 3732) builds
+    // Dragon". The control's init (vtable slot 1) builds
     // eight region bitmasks at +0x2D8 from the region rows whose byte +0xE is
     // set, and hands the shader eight _mapWantedRegionBitMask params at
-    // +0x2C8. Its refresh (+0xFC0A60, reached from slot 41) calls +0xFC0D40,
-    // which sets +0x302 when the player rides a vehicle whose type is on that
-    // list, then copies the masks into the params if +0x302 is set and writes
-    // zeros if not. +0xFC0AFF is that `je` on +0x302. Always jumping writes
+    // +0x2C8. Its refresh (+0x102B290 on 3840, +0xFC0A60 on 3732, reached from slot 41) calls +0xFC0D40,
+    // which sets +0x2FA (+0x302 up to 3732) when the player rides a vehicle whose type is on that
+    // list, then copies the masks into the params if that flag is set and writes
+    // zeros if not. +0x102B336 is that `je` on 3840 (+0xFC0AFF on 3732). Its target is the same loop of
+    // `mov rcx,[rdx]; mov [rcx+0x30],eax`. Always jumping writes
     // zeros, so no town is painted red whatever is ridden. The other
     // restricted-area type, GamePlayTriggerInfo, is the `jne` above it and
     // is left alone, and so is the map's warning text.
-    inline constexpr uint8_t kHideMapNoFly_Orig[] = { 0x74, 0x3B };      // je +0x3B
-    inline constexpr uint8_t kHideMapNoFly_Repl[] = { 0xEB, 0x3B };      // jmp +0x3B
-    // movzx eax,byte [rdi+0x303]; test al,al; jne; mov rcx,rdi; call <the
-    // ride check>; mov eax,[rdi+0x2D0]; cmp [rdi+0x302],bl; je; test eax,eax; je
+    inline constexpr uint8_t kHideMapNoFly_Orig[] = { 0x74, 0x44 };      // je +0x44
+    inline constexpr uint8_t kHideMapNoFly_Repl[] = { 0xEB, 0x44 };      // jmp +0x44
+    // movzx eax,byte [rsi+0x2FB]; test al,al; jne; mov rcx,rsi; call <the
+    // ride check>; mov eax,[rsi+0x2C8]; cmp [rsi+0x2FA],dil; je; test eax,eax; je
     inline constexpr const char* kHideMapNoFly_Ctx =
-        "0F B6 87 03 03 00 00 84 C0 0F 85 ?? ?? ?? ?? 48 8B CF E8 ?? ?? ?? ?? "
-        "8B 87 D0 02 00 00 38 9F 02 03 00 00 74 3B 85 C0 0F 84";
-    inline constexpr BytePatch kPatch_HideMapNoFly = { "HideMapNoFly", 0xFC0AFF, kHideMapNoFly_Orig, kHideMapNoFly_Repl, 2,
-                                                       kHideMapNoFly_Ctx, 35 };
+        "0F B6 86 FB 02 00 00 84 C0 0F 85 ?? ?? ?? ?? 48 8B CE E8 ?? ?? ?? ?? "
+        "8B 86 C8 02 00 00 40 38 BE FA 02 00 00 74 44 85 C0 0F 84";
+    inline constexpr BytePatch kPatch_HideMapNoFly = { "HideMapNoFly", 0x102B336, kHideMapNoFly_Orig, kHideMapNoFly_Repl, 2,
+                                                       kHideMapNoFly_Ctx, 36 };
 
     // --- Blackstar's takeoff (BlackstarStays) --------------------------------
     // Every action an AI chart starts goes through one function (+0x2391FD0
