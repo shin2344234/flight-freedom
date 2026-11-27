@@ -1,6 +1,6 @@
 # Flight Freedom
 
-Removes the flying ceiling and the no-fly zones in Crimson Desert 2.05.01, lets
+Removes the flying ceiling and the no-fly zones in Crimson Desert 2.06.00, lets
 a mount be summoned inside the Abyss, stops towns throwing you off in the air,
 keeps Blackstar where you leave him, and takes away his hour-long summon
 cooldown.
@@ -14,6 +14,15 @@ or a single call that the plugin changes in memory at startup, with no game
 file touched and nothing written to a save.
 
 [Plugin manual](mod/README.md)
+
+Built for game 2.06.00, exe 1.0.0.3840, the 26 November update. On 2.05.01,
+exe 1.0.0.3732, use 1.1.21, the last build made for it.
+
+New in 1.1.22. The 26 November patch moved every patch address and the layout
+of the data tables, so this release is the port to 3840. It ran in my game on
+26 November, and the log shows `NoFlyZones` applied. It is not tested in play,
+though. Two settings are new and nobody has played either: `SkystreakerCooldown`
+and `HideMapNoFly`, both off by default. Please report anything that looks wrong.
 
 ## What it changes
 
@@ -60,6 +69,12 @@ file touched and nothing written to a save.
   the same field. `SkystreakerCooldown`, off by default, writes its row the
   same way and lets it through the same check. Cloudcart and Cloudcruiser keep
   theirs.
+- **The red areas on the world map.** While you ride Blackstar or a war
+  machine, the map paints towns red, as places you cannot fly over. The map
+  control fills those areas from the town region masks only while you ride
+  one of those mounts and writes zeros otherwise. `HideMapNoFly`, off by
+  default, turns the one branch that picks between them into a jump, so the
+  zeros always go in. Only the picture changes. Requested by Sollaen.
 
 Every patch checks the bytes it is about to change and the code around them,
 and refuses on any other game build, with a line in the log rather than a
@@ -162,9 +177,9 @@ plugin, 0 of 67 on the DMM archive and 0 of 67 on the full one. 1.1.21 is
 clean as well, 0 of 62 on the plugin, 0 of 67 on the DMM archive and 0 of 66
 on the full one. Twenty-two releases is still a short history, so the figures stay here one release at a time instead of
 collapsing into a single score. 1.1.21 reports:
-[the plugin](https://www.virustotal.com/gui/file/a3bfb401c0a8eb97b59a3638f1d51a578b3731ade88e14ccb24ad37c4d86bfcd),
-[the DMM archive](https://www.virustotal.com/gui/file/b24287ba38e41dfe9346522cb166493549bec6df9893d0739e756cb13eec57bb) and
-[the full archive](https://www.virustotal.com/gui/file/39e709c318a68d94cff126649c0eabbd827345716893dcdaaf16ced566bda810).
+[the plugin](https://www.virustotal.com/gui/file/d392d19abb2a46a54a3cee2cbab0e2f94a892a9773e02c8727410e04ee39264a),
+[the DMM archive](https://www.virustotal.com/gui/file/bfd57fe7a11c12be456bfbff730e77ba8594b335511ee3bb9efe96e79d2f4943) and
+[the full archive](https://www.virustotal.com/gui/file/ca419fd85e8798dacd38f8203c977d60c90664351bd39fb834263a454c166b4f).
 
 A scanner may object anyway, and the reason is the shape of the file. It is a
 DLL that a loader puts inside the game, and once there it rewrites instructions
@@ -184,11 +199,11 @@ release to the next, where a false-positive report clears one file only.
 
 If Defender or your browser quarantines the download, restore it and exclude
 the game's `bin64` folder, or build from source and use your own binary.
-SHA-256 for 1.1.21:
+SHA-256 for 1.1.22:
 
-    b24287ba38e41dfe9346522cb166493549bec6df9893d0739e756cb13eec57bb  FlightFreedom-1.1.21-DMM.zip
-    39e709c318a68d94cff126649c0eabbd827345716893dcdaaf16ced566bda810  FlightFreedom-1.1.21.zip
-    a3bfb401c0a8eb97b59a3638f1d51a578b3731ade88e14ccb24ad37c4d86bfcd  FlightFreedom.asi
+    bfd57fe7a11c12be456bfbff730e77ba8594b335511ee3bb9efe96e79d2f4943  FlightFreedom-1.1.22-DMM.zip
+    ca419fd85e8798dacd38f8203c977d60c90664351bd39fb834263a454c166b4f  FlightFreedom-1.1.22.zip
+    d392d19abb2a46a54a3cee2cbab0e2f94a892a9773e02c8727410e04ee39264a  FlightFreedom.asi
 
 ## Building
 

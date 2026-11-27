@@ -1,11 +1,19 @@
 # Flight Freedom
 
-Lifts the mount restrictions in Crimson Desert 2.05.01 (exe 1.0.0.3732):
+Lifts the mount restrictions in Crimson Desert 2.06.00 (exe 1.0.0.3840):
 the 1350 flying ceiling, the region rule that dismounts you at altitude and
 keeps mounts out of listed regions, the "Cannot summon in this area." refusal
 inside the Abyss, the rule that throws you off when you fly low over a
 town, Blackstar flying away on his own about 30 seconds after he lands, and
 his hour-long summon cooldown.
+
+New in 1.1.22. The 26 November patch moved every patch address and the layout
+of the data tables, so this release is the port to 3840. It ran in my game on
+26 November, and the log shows `NoFlyZones` applied. It is not tested in play,
+though. Two settings are new and nobody has played either: `SkystreakerCooldown`
+takes away the third balloon's summon cooldown, and `HideMapNoFly` stops the
+world map painting towns red. Both are off by default. On 2.05.01, exe
+1.0.0.3732, use 1.1.21.
 
 ## Install
 
@@ -143,7 +151,8 @@ The hooks and patches are restored when the plugin unloads.
 
 ## Known limits
 
-- Built for 2.05.01 (exe 1.0.0.3732), the 18 November update. A patch will
+- Built for 2.06.00 (exe 1.0.0.3840), the 26 November update. On 2.05.01
+  (exe 1.0.0.3732) use 1.1.21. A patch will
   not apply on a different build, and the log names each one that refused.
   The ceiling is found by name and not by address, so it usually keeps
   working after an update that stops the patches. 2.05.00 was the exception.
