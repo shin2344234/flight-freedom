@@ -175,8 +175,9 @@ reached from the shape of the file, and Microsoft passed the same plugin on
 its own and inside the full archive. 1.1.20 is clean on all three files again, 0 of 71 on the
 plugin, 0 of 67 on the DMM archive and 0 of 67 on the full one. 1.1.21 is
 clean as well, 0 of 62 on the plugin, 0 of 67 on the DMM archive and 0 of 66
-on the full one. Twenty-two releases is still a short history, so the figures stay here one release at a time instead of
-collapsing into a single score. 1.1.21 reports:
+on the full one. 1.1.22 got 0 of 68 on the plugin and 0 of 66 on both
+archives. Twenty-three releases is still a short history, so the figures stay here one release at a time instead of
+collapsing into a single score. 1.1.22 reports:
 [the plugin](https://www.virustotal.com/gui/file/d392d19abb2a46a54a3cee2cbab0e2f94a892a9773e02c8727410e04ee39264a),
 [the DMM archive](https://www.virustotal.com/gui/file/bfd57fe7a11c12be456bfbff730e77ba8594b335511ee3bb9efe96e79d2f4943) and
 [the full archive](https://www.virustotal.com/gui/file/ca419fd85e8798dacd38f8203c977d60c90664351bd39fb834263a454c166b4f).
